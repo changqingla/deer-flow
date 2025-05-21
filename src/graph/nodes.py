@@ -18,6 +18,7 @@ from src.tools import (
     crawl_tool,
     get_web_search_tool,
     python_repl_tool,
+    rag_tool,
 )
 
 from src.config.agents import AGENT_LLM_MAP
@@ -472,7 +473,7 @@ async def researcher_node(
         state,
         config,
         "researcher",
-        [get_web_search_tool(configurable.max_search_results), crawl_tool],
+        [get_web_search_tool(configurable.max_search_results), crawl_tool, rag_tool],
     )
 
 
