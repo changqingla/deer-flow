@@ -1,6 +1,6 @@
-# DeerFlow Backend
+# AgentFlow Backend
 
-DeerFlow is a LangGraph-based AI super agent with sandbox execution, persistent memory, and extensible tool integration. The backend enables AI agents to execute code, browse the web, manage files, delegate tasks to subagents, and retain context across conversations - all in isolated, per-thread environments.
+AgentFlow is a LangGraph-based AI super agent with sandbox execution, persistent memory, and extensible tool integration. The backend enables AI agents to execute code, browse the web, manage files, delegate tasks to subagents, and retain context across conversations - all in isolated, per-thread environments.
 
 ---
 
@@ -125,7 +125,8 @@ FastAPI application providing REST endpoints for frontend integration:
 | `GET /api/memory/status` | Combined config + data |
 | `POST /api/threads/{id}/uploads` | Upload files (auto-converts PDF/PPT/Excel/Word to Markdown) |
 | `GET /api/threads/{id}/uploads/list` | List uploaded files |
-| `GET /api/threads/{id}/artifacts/{path}` | Serve generated artifacts |
+| `DELETE /api/threads/{id}/uploads/{filename}` | Delete uploaded file (syncs non-local sandbox + host thread storage) |
+| `GET /api/threads/{id}/artifacts/{path}` | Serve generated artifacts (`download=true/1/yes/on` forces attachment) |
 
 ---
 
@@ -254,7 +255,7 @@ Key sections:
 
 Provider note:
 - `models[*].use` references provider classes by module path (for example `langchain_openai:ChatOpenAI`).
-- If a provider module is missing, DeerFlow now returns an actionable error with install guidance (for example `uv add langchain-google-genai`).
+- If a provider module is missing, AgentFlow now returns an actionable error with install guidance (for example `uv add langchain-google-genai`).
 
 ### Extensions Configuration (`extensions_config.json`)
 

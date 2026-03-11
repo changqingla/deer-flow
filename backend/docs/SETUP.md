@@ -1,10 +1,10 @@
 # Setup Guide
 
-Quick setup instructions for DeerFlow.
+Quick setup instructions for AgentFlow.
 
 ## Configuration Setup
 
-DeerFlow uses a YAML configuration file that should be placed in the **project root directory**.
+AgentFlow uses a YAML configuration file that should be placed in the **project root directory**.
 
 ### Steps
 

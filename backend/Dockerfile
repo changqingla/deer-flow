@@ -1,5 +1,5 @@
 # Backend Development Dockerfile
-FROM python:3.12-slim
+FROM crpi-wh1i56a4x558rrhm.cn-hangzhou.personal.cr.aliyuncs.com/changqinga/python:3.12-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -8,10 +8,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker CLI (for DooD: allows starting sandbox containers via host Docker socket)
-COPY --from=docker:cli /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=crpi-wh1i56a4x558rrhm.cn-hangzhou.personal.cr.aliyuncs.com/changqinga/docker:cli /usr/local/bin/docker /usr/local/bin/docker
 
 # Install uv from a pinned versioned image (avoids curl|sh from untrusted remote)
-COPY --from=ghcr.io/astral-sh/uv:0.7.20 /uv /uvx /usr/local/bin/
+COPY --from=crpi-wh1i56a4x558rrhm.cn-hangzhou.personal.cr.aliyuncs.com/changqinga/uv:0.7.20 /uv /uvx /usr/local/bin/
 
 # Set working directory
 WORKDIR /app

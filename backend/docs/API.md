@@ -1,10 +1,10 @@
 # API Reference
 
-This document provides a complete reference for the DeerFlow backend APIs.
+This document provides a complete reference for the AgentFlow backend APIs.
 
 ## Overview
 
-DeerFlow backend exposes two sets of APIs:
+AgentFlow backend exposes two sets of APIs:
 
 1. **LangGraph API** - Agent interactions, threads, and streaming (`/api/langgraph/*`)
 2. **Gateway API** - Models, MCP, skills, uploads, and artifacts (`/api/*`)
@@ -420,6 +420,11 @@ Content-Type: multipart/form-data
 }
 ```
 
+**Notes:**
+- `size` is an integer in bytes.
+- Upload and list APIs use the same numeric `size` type for consistency.
+- Invalid `thread_id` returns `400 Bad Request`.
+
 **Supported Document Formats** (auto-converted to Markdown):
 - PDF (`.pdf`)
 - PowerPoint (`.ppt`, `.pptx`)
@@ -456,6 +461,17 @@ GET /api/threads/{thread_id}/uploads/list
 DELETE /api/threads/{thread_id}/uploads/{filename}
 ```
 
+**Validation:**
+- `filename` must be a safe basename (no path separators, no `.` / `..`).
+- Invalid filename returns `400 Bad Request`.
+- Missing file returns `404 Not Found`.
+
+**Behavior:**
+- In non-local sandbox mode, the backend deletes both:
+  - thread storage file on host
+  - corresponding sandbox virtual file (`/mnt/user-data/uploads/{filename}`)
+- In local sandbox mode, host thread storage is the source of truth.
+
 **Response:**
 ```json
 {
@@ -479,7 +495,8 @@ GET /api/threads/{thread_id}/artifacts/{path}
 - `/api/threads/abc123/artifacts/mnt/user-data/uploads/document.pdf`
 
 **Query Parameters:**
-- `download` (boolean): If `true`, force download with Content-Disposition header
+- `download`: If one of `true`, `1`, `yes`, `on` (case-insensitive), force download with attachment headers.
+  Other values (including `false`) are treated as inline preview.
 
 **Response:** File content with appropriate Content-Type
 
@@ -505,9 +522,9 @@ All APIs return errors in a consistent format:
 
 ## Authentication
 
-Currently, DeerFlow does not implement authentication. All APIs are accessible without credentials.
+Currently, AgentFlow does not implement authentication. All APIs are accessible without credentials.
 
-Note: This is about DeerFlow API authentication. MCP outbound connections can still use OAuth for configured HTTP/SSE MCP servers.
+Note: This is about AgentFlow API authentication. MCP outbound connections can still use OAuth for configured HTTP/SSE MCP servers.
 
 For production deployments, it is recommended to:
 1. Use Nginx for basic auth or OAuth integration

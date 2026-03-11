@@ -2,7 +2,7 @@
 
 ## 概述
 
-DeerFlow 后端提供了完整的文件上传功能，支持多文件上传，并自动将 Office 文档和 PDF 转换为 Markdown 格式。
+AgentFlow 后端提供了完整的文件上传功能，支持多文件上传，并自动将 Office 文档和 PDF 转换为 Markdown 格式。
 
 ## 功能特性
 
@@ -47,6 +47,11 @@ POST /api/threads/{thread_id}/uploads
 - `path`: 实际文件系统路径（相对于 `backend/` 目录）
 - `virtual_path`: Agent 在沙箱中使用的虚拟路径
 - `artifact_url`: 前端通过 HTTP 访问文件的 URL
+- `size`: 整数（字节数）
+
+**一致性说明：**
+- `POST /uploads` 与 `GET /uploads/list` 的 `size` 字段均为整数类型（bytes）。
+- 非法 `thread_id` 会返回 `400 Bad Request`。
 
 ### 2. 列出已上传文件
 ```
@@ -75,6 +80,16 @@ GET /api/threads/{thread_id}/uploads/list
 ```
 DELETE /api/threads/{thread_id}/uploads/{filename}
 ```
+
+**参数校验：**
+- `filename` 必须是安全的基础文件名（不能包含 `/`、`\\`、`.`、`..` 路径语义）。
+- 非法 `filename` 返回 `400 Bad Request`。
+- 文件不存在返回 `404 Not Found`。
+
+**删除语义：**
+- 本地沙箱模式：删除线程目录中的文件即可（线程目录为权威存储）。
+- 非本地沙箱模式：除了删除线程目录文件，还会同步删除沙箱中的
+  `/mnt/user-data/uploads/{filename}`，避免 UI 删除后沙箱仍可访问旧文件。
 
 **响应：**
 ```json
@@ -237,6 +252,7 @@ backend/.deer-flow/threads/
 2. 检查 Gateway API 是否正常运行
 3. 检查磁盘空间是否充足
 4. 查看 Gateway 日志：`make gateway`
+5. 检查 `thread_id` 与 `filename` 参数是否合法（非法会返回 400）
 
 ### 文档转换失败
 
@@ -249,7 +265,7 @@ backend/.deer-flow/threads/
 1. 确认 UploadsMiddleware 已在 agent.py 中注册
 2. 检查 thread_id 是否正确
 3. 确认文件确实已上传到 `backend/.deer-flow/threads/{thread_id}/user-data/uploads/`
-4. 非本地沙箱场景下，确认上传接口没有报错（需要成功完成 sandbox 同步）
+4. 非本地沙箱场景下，确认上传/删除接口没有报错（需要成功完成 sandbox 同步）
 
 ## 开发建议
 

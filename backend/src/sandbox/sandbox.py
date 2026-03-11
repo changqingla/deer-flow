@@ -70,3 +70,12 @@ class Sandbox(ABC):
             content: The binary content to write to the file.
         """
         pass
+
+    @abstractmethod
+    def delete_file(self, path: str) -> None:
+        """Delete a file.
+
+        Args:
+            path: The absolute path of the file to delete.
+        """
+        pass

@@ -1,5 +1,5 @@
 # Frontend Development Dockerfile
-FROM node:22-alpine
+FROM crpi-wh1i56a4x558rrhm.cn-hangzhou.personal.cr.aliyuncs.com/changqinga/node:22-alpine
 
 # Accept build argument for pnpm store path
 ARG PNPM_STORE_PATH=/root/.local/share/pnpm/store

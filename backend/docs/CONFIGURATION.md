@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This guide explains how to configure DeerFlow for your environment.
+This guide explains how to configure AgentFlow for your environment.
 
 ## Configuration Sections
 
@@ -91,7 +91,7 @@ tools:
 
 ### Sandbox
 
-DeerFlow supports multiple sandbox execution modes. Configure your preferred mode in `config.yaml`:
+AgentFlow supports multiple sandbox execution modes. Configure your preferred mode in `config.yaml`:
 
 **Local Execution** (runs sandbox code directly on the host machine):
 ```yaml
@@ -115,7 +115,7 @@ sandbox:
    provisioner_url: http://provisioner:8002
 ```
 
-When using Docker development (`make docker-start`), DeerFlow starts the `provisioner` service only if this provisioner mode is configured. In local or plain Docker sandbox modes, `provisioner` is skipped.
+When using Docker development (`make docker-start`), AgentFlow starts the `provisioner` service only if this provisioner mode is configured. In local or plain Docker sandbox modes, `provisioner` is skipped.
 
 See [Provisioner Setup Guide](docker/provisioner/README.md) for detailed configuration, prerequisites, and troubleshooting.
 
@@ -175,7 +175,7 @@ title:
 
 ## Environment Variables
 
-DeerFlow supports environment variable substitution using the `$` prefix:
+AgentFlow supports environment variable substitution using the `$` prefix:
 
 ```yaml
 models:
@@ -196,7 +196,7 @@ The configuration file should be placed in the **project root directory** (`deer
 
 ## Configuration Priority
 
-DeerFlow searches for configuration in this order:
+AgentFlow searches for configuration in this order:
 
 1. Path specified in code via `config_path` argument
 2. Path from `DEER_FLOW_CONFIG_PATH` environment variable
