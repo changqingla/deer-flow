@@ -21,7 +21,7 @@ load_dotenv()
 
 
 class AppConfig(BaseModel):
-    """Config for the DeerFlow application"""
+    """Config for the AgentFlow application"""
 
     models: list[ModelConfig] = Field(default_factory=list, description="Available models")
     sandbox: SandboxConfig = Field(description="Sandbox configuration")
@@ -168,7 +168,7 @@ _app_config: AppConfig | None = None
 
 
 def get_app_config() -> AppConfig:
-    """Get the DeerFlow config instance.
+    """Get the AgentFlow config instance.
 
     Returns a cached singleton instance. Use `reload_app_config()` to reload
     from file, or `reset_app_config()` to clear the cache.

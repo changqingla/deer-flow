@@ -143,7 +143,9 @@ async def get_artifact(thread_id: str, path: str, request: Request) -> FileRespo
     encoded_filename = quote(actual_path.name)
 
     # if `download` query parameter is true, return the file as a download
-    if request.query_params.get("download"):
+    download = request.query_params.get("download")
+    should_download = str(download).lower() in {"1", "true", "yes", "on"} if download is not None else False
+    if should_download:
         return FileResponse(path=actual_path, filename=actual_path.name, media_type=mime_type, headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"})
 
     if mime_type and mime_type == "text/html":

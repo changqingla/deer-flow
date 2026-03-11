@@ -1,6 +1,6 @@
-# Contributing to DeerFlow Backend
+# Contributing to AgentFlow Backend
 
-Thank you for your interest in contributing to DeerFlow! This document provides guidelines and instructions for contributing to the backend codebase.
+Thank you for your interest in contributing to AgentFlow! This document provides guidelines and instructions for contributing to the backend codebase.
 
 ## Table of Contents
 
@@ -423,4 +423,4 @@ If you have questions about contributing:
 2. Look for similar issues or PRs on GitHub
 3. Open a discussion or issue on GitHub
 
-Thank you for contributing to DeerFlow!
+Thank you for contributing to AgentFlow!

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# start.sh - Start all DeerFlow development services
+# start.sh - Start all AgentFlow development services
 #
 # Must be run from the repo root directory.
 
@@ -26,7 +26,7 @@ sleep 1
 
 echo ""
 echo "=========================================="
-echo "  Starting DeerFlow Development Server"
+echo "  Starting AgentFlow Development Server"
 echo "=========================================="
 echo ""
 echo "Services starting up..."
@@ -42,7 +42,7 @@ if ! { \
         [ -f backend/config.yaml ] || \
         [ -f config.yaml ]; \
     }; then
-    echo "✗ No DeerFlow config file found."
+    echo "✗ No AgentFlow config file found."
     echo "  Checked these locations:"
     echo "    - $DEER_FLOW_CONFIG_PATH (when DEER_FLOW_CONFIG_PATH is set)"
     echo "    - backend/config.yaml"
@@ -125,7 +125,7 @@ echo "✓ Nginx started on localhost:2026"
 
 echo ""
 echo "=========================================="
-echo "  DeerFlow is ready!"
+echo "  AgentFlow is ready!"
 echo "=========================================="
 echo ""
 echo "  🌐 Application: http://localhost:2026"

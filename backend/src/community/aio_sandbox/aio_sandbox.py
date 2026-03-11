@@ -1,5 +1,6 @@
 import base64
 import logging
+import shlex
 
 from agent_sandbox import Sandbox as AioSandboxClient
 
@@ -125,4 +126,17 @@ class AioSandbox(Sandbox):
             self._client.file.write_file(file=path, content=base64_content, encoding="base64")
         except Exception as e:
             logger.error(f"Failed to update file in sandbox: {e}")
+            raise
+
+    def delete_file(self, path: str) -> None:
+        """Delete a file in the sandbox.
+
+        Args:
+            path: The absolute path of the file to delete.
+        """
+        try:
+            # Use rm -f semantics so deleting a missing file is a no-op.
+            self._client.shell.exec_command(command=f"rm -f -- {shlex.quote(path)}")
+        except Exception as e:
+            logger.error(f"Failed to delete file in sandbox: {e}")
             raise

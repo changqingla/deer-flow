@@ -1,4 +1,4 @@
-# Configuration for the DeerFlow application
+# Configuration for the AgentFlow application
 #
 # Guidelines:
 # - Copy this file to `config.yaml` and customize it for your environment
@@ -350,11 +350,11 @@ memory:
 # ============================================================================
 # Checkpointer Configuration
 # ============================================================================
-# Configure state persistence for the embedded DeerFlowClient.
+# Configure state persistence for the embedded AgentFlowClient.
 # The LangGraph Server manages its own state persistence separately
 # via the server infrastructure (this setting does not affect it).
 #
-# When configured, DeerFlowClient will automatically use this checkpointer,
+# When configured, AgentFlowClient will automatically use this checkpointer,
 # enabling multi-turn conversations to persist across process restarts.
 #
 # Supported types:
@@ -378,12 +378,12 @@ checkpointer:
 # PostgreSQL (multi-process, production):
 # checkpointer:
 #   type: postgres
-#   connection_string: postgresql://user:password@localhost:5432/deerflow
+#   connection_string: postgresql://user:password@localhost:5432/AgentFlow
 
 # ============================================================================
 # IM Channels Configuration
 # ============================================================================
-# Connect DeerFlow to external messaging platforms.
+# Connect AgentFlow to external messaging platforms.
 # All channels use outbound connections (WebSocket or polling) — no public IP required.
 
 # channels:
