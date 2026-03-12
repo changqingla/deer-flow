@@ -1,4 +1,4 @@
-"""Prompt templates for memory update and injection."""
+"""记忆更新与注入相关的提示词模板。"""
 
 import re
 from typing import Any
@@ -10,7 +10,7 @@ try:
 except ImportError:
     TIKTOKEN_AVAILABLE = False
 
-# Prompt template for updating memory based on conversation
+# 基于对话更新记忆的提示词模板
 MEMORY_UPDATE_PROMPT = """You are a memory management system. Your task is to analyze a conversation and update the user's memory profile.
 
 Current Memory State:
@@ -116,7 +116,7 @@ Important Rules:
 Return ONLY valid JSON, no explanation or markdown."""
 
 
-# Prompt template for extracting facts from a single message
+# 从单条消息中提取事实的提示词模板
 FACT_EXTRACTION_PROMPT = """Extract factual information about the user from this message.
 
 Message:
@@ -145,43 +145,43 @@ Return ONLY valid JSON."""
 
 
 def _count_tokens(text: str, encoding_name: str = "cl100k_base") -> int:
-    """Count tokens in text using tiktoken.
+    """统计文本 token 数量。
 
-    Args:
-        text: The text to count tokens for.
-        encoding_name: The encoding to use (default: cl100k_base for GPT-4/3.5).
+    参数：
+        text: 待统计文本。
+        encoding_name: 使用的编码名称（默认 `cl100k_base`，适配 GPT-4/3.5）。
 
-    Returns:
-        The number of tokens in the text.
+    返回：
+        文本 token 数。
     """
     if not TIKTOKEN_AVAILABLE:
-        # Fallback to character-based estimation if tiktoken is not available
+        # 若 tiktoken 不可用，回退为基于字符数的估算
         return len(text) // 4
 
     try:
         encoding = tiktoken.get_encoding(encoding_name)
         return len(encoding.encode(text))
     except Exception:
-        # Fallback to character-based estimation on error
+        # 出错时同样回退为基于字符数的估算
         return len(text) // 4
 
 
 def format_memory_for_injection(memory_data: dict[str, Any], max_tokens: int = 2000) -> str:
-    """Format memory data for injection into system prompt.
+    """将记忆数据格式化为系统提示词注入文本。
 
-    Args:
-        memory_data: The memory data dictionary.
-        max_tokens: Maximum tokens to use (counted via tiktoken for accuracy).
+    参数：
+        memory_data: 记忆数据字典。
+        max_tokens: 最大 token 数（优先使用 tiktoken 精确计算）。
 
-    Returns:
-        Formatted memory string for system prompt injection.
+    返回：
+        可注入系统提示词的格式化字符串。
     """
     if not memory_data:
         return ""
 
     sections = []
 
-    # Format user context
+    # 格式化 user 上下文
     user_data = memory_data.get("user", {})
     if user_data:
         user_sections = []
@@ -201,7 +201,7 @@ def format_memory_for_injection(memory_data: dict[str, Any], max_tokens: int = 2
         if user_sections:
             sections.append("User Context:\n" + "\n".join(f"- {s}" for s in user_sections))
 
-    # Format history
+    # 格式化 history 信息
     history_data = memory_data.get("history", {})
     if history_data:
         history_sections = []
@@ -222,11 +222,11 @@ def format_memory_for_injection(memory_data: dict[str, Any], max_tokens: int = 2
 
     result = "\n\n".join(sections)
 
-    # Use accurate token counting with tiktoken
+    # 使用 tiktoken 进行更准确的 token 计数
     token_count = _count_tokens(result)
     if token_count > max_tokens:
-        # Truncate to fit within token limit
-        # Estimate characters to remove based on token ratio
+        # 截断以满足 token 限制
+        # 基于 token 比例估算应保留的字符数
         char_per_token = len(result) / token_count
         target_chars = int(max_tokens * char_per_token * 0.95)  # 95% to leave margin
         result = result[:target_chars] + "\n..."
@@ -235,33 +235,32 @@ def format_memory_for_injection(memory_data: dict[str, Any], max_tokens: int = 2
 
 
 def format_conversation_for_update(messages: list[Any]) -> str:
-    """Format conversation messages for memory update prompt.
+    """将消息列表格式化为用于记忆更新的对话文本。
 
-    Args:
-        messages: List of conversation messages.
+    参数：
+        messages: 对话消息列表。
 
-    Returns:
-        Formatted conversation string.
+    返回：
+        格式化后的对话字符串。
     """
     lines = []
     for msg in messages:
         role = getattr(msg, "type", "unknown")
         content = getattr(msg, "content", str(msg))
 
-        # Handle content that might be a list (multimodal)
+        # 处理 content 为列表（多模态块）的情况
         if isinstance(content, list):
             text_parts = [p.get("text", "") for p in content if isinstance(p, dict) and "text" in p]
             content = " ".join(text_parts) if text_parts else str(content)
 
-        # Strip uploaded_files tags from human messages to avoid persisting
-        # ephemeral file path info into long-term memory.  Skip the turn entirely
-        # when nothing remains after stripping (upload-only message).
+        # 从 human 消息中移除 uploaded_files 标签，避免将会话级临时文件路径
+        # 误写入长期记忆。若移除后内容为空（纯上传消息），则跳过该轮。
         if role == "human":
             content = re.sub(r"<uploaded_files>[\s\S]*?</uploaded_files>\n*", "", str(content)).strip()
             if not content:
                 continue
 
-        # Truncate very long messages
+        # 截断超长消息
         if len(str(content)) > 1000:
             content = str(content)[:1000] + "..."
 

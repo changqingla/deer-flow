@@ -4,18 +4,18 @@ from pydantic import BaseModel, Field
 
 
 class GatewayConfig(BaseModel):
-    """Configuration for the API Gateway."""
+    """网关（API Gateway）配置。"""
 
-    host: str = Field(default="0.0.0.0", description="Host to bind the gateway server")
-    port: int = Field(default=8001, description="Port to bind the gateway server")
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"], description="Allowed CORS origins")
+    host: str = Field(default="0.0.0.0", description="网关服务绑定主机")
+    port: int = Field(default=8001, description="网关服务绑定端口")
+    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"], description="允许的 CORS 来源列表")
 
 
 _gateway_config: GatewayConfig | None = None
 
 
 def get_gateway_config() -> GatewayConfig:
-    """Get gateway config, loading from environment if available."""
+    """获取 Gateway 配置，必要时从环境变量加载。"""
     global _gateway_config
     if _gateway_config is None:
         cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000")

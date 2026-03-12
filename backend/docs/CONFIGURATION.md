@@ -133,7 +133,7 @@ sandbox:
   use: src.community.aio_sandbox:AioSandboxProvider
   port: 8080
   auto_start: true
-  container_prefix: deer-flow-sandbox
+  container_prefix: agent-flow-sandbox
 
   # Optional: Additional mounts
   mounts:

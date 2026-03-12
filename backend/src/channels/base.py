@@ -1,4 +1,4 @@
-"""Abstract base class for IM channels."""
+"""即时通讯（IM）通道抽象基类。"""
 
 from __future__ import annotations
 
@@ -12,13 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class Channel(ABC):
-    """Base class for all IM channel implementations.
+    """
+    每个通道连接一个外部消息平台，并负责：
 
-    Each channel connects to an external messaging platform and:
-    1. Receives messages, wraps them as InboundMessage, publishes to the bus.
-    2. Subscribes to outbound messages and sends replies back to the platform.
+    1. 接收消息，封装为 InboundMessage 后发布到总线。
+    2. 订阅出站消息，并将回复发送回平台。
 
-    Subclasses must implement ``start``, ``stop``, and ``send``.
+    子类必须实现 ``start``、``stop`` 与 ``send``。
     """
 
     def __init__(self, name: str, bus: MessageBus, config: dict[str, Any]) -> None:
@@ -31,35 +31,35 @@ class Channel(ABC):
     def is_running(self) -> bool:
         return self._running
 
-    # -- lifecycle ---------------------------------------------------------
+    # -- 生命周期 ------------------------------------------------------------
 
     @abstractmethod
     async def start(self) -> None:
-        """Start listening for messages from the external platform."""
+        """开始监听外部平台消息。"""
 
     @abstractmethod
     async def stop(self) -> None:
-        """Gracefully stop the channel."""
+        """优雅停止通道。"""
 
-    # -- outbound ----------------------------------------------------------
+    # -- 出站 ---------------------------------------------------------------
 
     @abstractmethod
     async def send(self, msg: OutboundMessage) -> None:
-        """Send a message back to the external platform.
+        """
+        实现应使用 ``msg.chat_id`` 与 ``msg.thread_ts``，
+        将回复路由到正确的会话/线程。
 
-        The implementation should use ``msg.chat_id`` and ``msg.thread_ts``
-        to route the reply to the correct conversation/thread.
         """
 
     async def send_file(self, msg: OutboundMessage, attachment: ResolvedAttachment) -> bool:
-        """Upload a single file attachment to the platform.
+        """
+        若上传成功返回 True，否则返回 False。
+        默认实现返回 False（表示不支持文件上传）。
 
-        Returns True if the upload succeeded, False otherwise.
-        Default implementation returns False (no file upload support).
         """
         return False
 
-    # -- helpers -----------------------------------------------------------
+    # -- 辅助方法 -----------------------------------------------------------
 
     def _make_inbound(
         self,
@@ -72,7 +72,7 @@ class Channel(ABC):
         files: list[dict[str, Any]] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> InboundMessage:
-        """Convenience factory for creating InboundMessage instances."""
+        """用于创建 InboundMessage 的便捷工厂方法。"""
         return InboundMessage(
             channel_name=self.name,
             chat_id=chat_id,
@@ -85,19 +85,19 @@ class Channel(ABC):
         )
 
     async def _on_outbound(self, msg: OutboundMessage) -> None:
-        """Outbound callback registered with the bus.
+        """
+        仅转发目标为当前通道的消息。
+        先发送文本，再上传文件附件。
+        若文本发送失败，则完全跳过文件上传，避免出现
+        “只有文件没有配套文本”的部分投递。
 
-        Only forwards messages targeted at this channel.
-        Sends the text message first, then uploads any file attachments.
-        File uploads are skipped entirely when the text send fails to avoid
-        partial deliveries (files without accompanying text).
         """
         if msg.channel_name == self.name:
             try:
                 await self.send(msg)
             except Exception:
                 logger.exception("Failed to send outbound message on channel %s", self.name)
-                return  # Do not attempt file uploads when the text message failed
+                return  # 文本发送失败时不再尝试上传文件
 
             for attachment in msg.attachments:
                 try:

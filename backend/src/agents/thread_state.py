@@ -19,29 +19,29 @@ class ViewedImageData(TypedDict):
 
 
 def merge_artifacts(existing: list[str] | None, new: list[str] | None) -> list[str]:
-    """Reducer for artifacts list - merges and deduplicates artifacts."""
+    """`artifacts` 列表的 reducer：合并并去重。"""
     if existing is None:
         return new or []
     if new is None:
         return existing
-    # Use dict.fromkeys to deduplicate while preserving order
+    # 使用 dict.fromkeys 去重并保持原有顺序
     return list(dict.fromkeys(existing + new))
 
 
 def merge_viewed_images(existing: dict[str, ViewedImageData] | None, new: dict[str, ViewedImageData] | None) -> dict[str, ViewedImageData]:
-    """Reducer for viewed_images dict - merges image dictionaries.
+    """`viewed_images` 字典的 reducer：合并图片记录。
 
-    Special case: If new is an empty dict {}, it clears the existing images.
-    This allows middlewares to clear the viewed_images state after processing.
+    特殊规则：当 `new` 是空字典 `{}` 时，表示清空已有图片记录，
+    以便中间件在处理完成后重置 `viewed_images` 状态。
     """
     if existing is None:
         return new or {}
     if new is None:
         return existing
-    # Special case: empty dict means clear all viewed images
+    # 特殊规则：空字典表示清空全部已查看图片
     if len(new) == 0:
         return {}
-    # Merge dictionaries, new values override existing ones for same keys
+    # 合并字典；相同 key 由新值覆盖旧值
     return {**existing, **new}
 
 

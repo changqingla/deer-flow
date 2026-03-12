@@ -1,4 +1,4 @@
-"""Configuration and loaders for custom agents."""
+"""自定义 Agent 的配置与加载器。"""
 
 import logging
 import re
@@ -16,7 +16,7 @@ AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9-]+$")
 
 
 class AgentConfig(BaseModel):
-    """Configuration for a custom agent."""
+    """自定义 Agent 配置。"""
 
     name: str
     description: str = ""
@@ -25,17 +25,18 @@ class AgentConfig(BaseModel):
 
 
 def load_agent_config(name: str | None) -> AgentConfig | None:
-    """Load the custom or default agent's config from its directory.
+    """
+    加载指定 Agent 的配置。
 
-    Args:
-        name: The agent name.
+    参数：
+        name: Agent 名称。
 
-    Returns:
-        AgentConfig instance.
+    返回：
+        AgentConfig 实例。
 
-    Raises:
-        FileNotFoundError: If the agent directory or config.yaml does not exist.
-        ValueError: If config.yaml cannot be parsed.
+    异常：
+        FileNotFoundError: 当 Agent 目录或 config.yaml 不存在时抛出。
+        ValueError: 当 config.yaml 解析失败时抛出。
     """
 
     if name is None:
@@ -58,11 +59,11 @@ def load_agent_config(name: str | None) -> AgentConfig | None:
     except yaml.YAMLError as e:
         raise ValueError(f"Failed to parse agent config {config_file}: {e}") from e
 
-    # Ensure name is set from directory name if not in file
+    # 若配置文件未提供 name，则使用目录名
     if "name" not in data:
         data["name"] = name
 
-    # Strip unknown fields before passing to Pydantic (e.g. legacy prompt_file)
+    # 传给 Pydantic 前先剔除未知字段（例如旧版 prompt_file）
     known_fields = set(AgentConfig.model_fields.keys())
     data = {k: v for k, v in data.items() if k in known_fields}
 
@@ -70,16 +71,17 @@ def load_agent_config(name: str | None) -> AgentConfig | None:
 
 
 def load_agent_soul(agent_name: str | None) -> str | None:
-    """Read the SOUL.md file for a custom agent, if it exists.
+    """
+    加载 Agent 的 SOUL.md 内容。
 
-    SOUL.md defines the agent's personality, values, and behavioral guardrails.
-    It is injected into the lead agent's system prompt as additional context.
+    SOUL.md 定义 Agent 的人格、价值观和行为边界，
+    会作为附加上下文注入主 Agent 系统提示词。
 
-    Args:
-        agent_name: The name of the agent or None for the default agent.
+    参数：
+        agent_name: Agent 名称；None 表示默认 Agent。
 
-    Returns:
-        The SOUL.md content as a string, or None if the file does not exist.
+    返回：
+        SOUL.md 文本内容；若文件不存在则返回 None。
     """
     agent_dir = get_paths().agent_dir(agent_name) if agent_name else get_paths().base_dir
     soul_path = agent_dir / SOUL_FILENAME
@@ -90,10 +92,11 @@ def load_agent_soul(agent_name: str | None) -> str | None:
 
 
 def list_custom_agents() -> list[AgentConfig]:
-    """Scan the agents directory and return all valid custom agents.
+    """
+    列出所有可用的自定义 Agent。
 
-    Returns:
-        List of AgentConfig for each valid agent directory found.
+    返回：
+        每个有效 Agent 目录对应的 AgentConfig 列表。
     """
     agents_dir = get_paths().agents_dir
 

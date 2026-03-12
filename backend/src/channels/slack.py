@@ -1,4 +1,4 @@
-"""Slack channel — connects via Socket Mode (no public IP needed)."""
+"""用于 Slack 平台的渠道：通过 Socket Mode 连接（无需公网 IP）。"""
 
 from __future__ import annotations
 
@@ -17,12 +17,12 @@ _slack_md_converter = SlackMarkdownConverter()
 
 
 class SlackChannel(Channel):
-    """Slack IM channel using Socket Mode (WebSocket, no public IP).
+    """
+    配置项（``config.yaml`` 中 ``channels.slack``）：
+        - ``bot_token``: Slack Bot User OAuth Token（xoxb-...）。
+        - ``app_token``: 用于 Socket Mode 的 Slack App-Level Token（xapp-...）。
+        - ``allowed_users``: （可选）允许的 Slack 用户 ID 列表。空列表表示允许所有人。
 
-    Configuration keys (in ``config.yaml`` under ``channels.slack``):
-        - ``bot_token``: Slack Bot User OAuth Token (xoxb-...).
-        - ``app_token``: Slack App-Level Token (xapp-...) for Socket Mode.
-        - ``allowed_users``: (optional) List of allowed Slack user IDs. Empty = allow all.
     """
 
     def __init__(self, bus: MessageBus, config: dict[str, Any]) -> None:
@@ -65,7 +65,7 @@ class SlackChannel(Channel):
         self._running = True
         self.bus.subscribe_outbound(self._on_outbound)
 
-        # Start socket mode in background thread
+        # 在后台线程启动 Socket Mode
         asyncio.get_event_loop().run_in_executor(None, self._socket_client.connect)
         logger.info("Slack channel started")
 
@@ -92,7 +92,7 @@ class SlackChannel(Channel):
         for attempt in range(_max_retries):
             try:
                 await asyncio.to_thread(self._web_client.chat_postMessage, **kwargs)
-                # Add a completion reaction to the thread root
+                # 在线程根消息上添加完成反应
                 if msg.thread_ts:
                     await asyncio.to_thread(
                         self._add_reaction,
@@ -104,7 +104,7 @@ class SlackChannel(Channel):
             except Exception as exc:
                 last_exc = exc
                 if attempt < _max_retries - 1:
-                    delay = 2**attempt  # 1s, 2s
+                    delay = 2**attempt  # 1 秒、2 秒
                     logger.warning(
                         "[Slack] send failed (attempt %d/%d), retrying in %ds: %s",
                         attempt + 1,
@@ -115,7 +115,7 @@ class SlackChannel(Channel):
                     await asyncio.sleep(delay)
 
         logger.error("[Slack] send failed after %d attempts: %s", _max_retries, last_exc)
-        # Add failure reaction on error
+        # 发送失败时添加失败反应
         if msg.thread_ts:
             try:
                 await asyncio.to_thread(
@@ -149,10 +149,10 @@ class SlackChannel(Channel):
             logger.exception("[Slack] failed to upload file: %s", attachment.filename)
             return False
 
-    # -- internal ----------------------------------------------------------
+    # -- 内部 ---------------------------------------------------------------
 
     def _add_reaction(self, channel_id: str, timestamp: str, emoji: str) -> None:
-        """Add an emoji reaction to a message (best-effort, non-blocking)."""
+        """为消息添加 emoji 反应（尽力而为，非阻塞）。"""
         if not self._web_client:
             return
         try:
@@ -166,7 +166,7 @@ class SlackChannel(Channel):
                 logger.warning("[Slack] failed to add reaction %s: %s", emoji, exc)
 
     def _send_running_reply(self, channel_id: str, thread_ts: str) -> None:
-        """Send a 'Working on it......' reply in the thread (called from SDK thread)."""
+        """在线程中发送“处理中...”回复（从 SDK 线程调用）。"""
         if not self._web_client:
             return
         try:
@@ -180,9 +180,9 @@ class SlackChannel(Channel):
             logger.exception("[Slack] failed to send running reply in channel=%s", channel_id)
 
     def _on_socket_event(self, client, req) -> None:
-        """Called by slack-sdk for each Socket Mode event."""
+        """由 slack-sdk 在每个 Socket Mode 事件上回调。"""
         try:
-            # Acknowledge the event
+            # 确认已接收事件
             response = self._SocketModeResponse(envelope_id=req.envelope_id)
             client.send_socket_mode_response(response)
 
@@ -193,7 +193,7 @@ class SlackChannel(Channel):
             event = req.payload.get("event", {})
             etype = event.get("type", "")
 
-            # Handle message events (DM or @mention)
+            # 处理消息事件（私聊或 @ 提及）
             if etype in ("message", "app_mention"):
                 self._handle_message_event(event)
 
@@ -201,13 +201,13 @@ class SlackChannel(Channel):
             logger.exception("Error processing Slack event")
 
     def _handle_message_event(self, event: dict) -> None:
-        # Ignore bot messages
+        # 忽略机器人消息
         if event.get("bot_id") or event.get("subtype"):
             return
 
         user_id = event.get("user", "")
 
-        # Check allowed users
+        # 检查白名单用户
         if self._allowed_users and user_id not in self._allowed_users:
             logger.debug("Ignoring message from non-allowed user: %s", user_id)
             return
@@ -224,9 +224,9 @@ class SlackChannel(Channel):
         else:
             msg_type = InboundMessageType.CHAT
 
-        # topic_id: use thread_ts as the topic identifier.
-        # For threaded messages, thread_ts is the root message ts (shared topic).
-        # For non-threaded messages, thread_ts is the message's own ts (new topic).
+        # 主题 ID（topic_id）：使用 thread_ts 作为主题标识。
+        # 对线程消息，thread_ts 是根消息 ts（共享同一主题）。
+        # 对非线程消息，thread_ts 是该消息自身 ts（新主题）。
         inbound = self._make_inbound(
             chat_id=channel_id,
             user_id=user_id,
@@ -237,8 +237,8 @@ class SlackChannel(Channel):
         inbound.topic_id = thread_ts
 
         if self._loop and self._loop.is_running():
-            # Acknowledge with an eyes reaction
+            # 用 eyes 反应表示已接收
             self._add_reaction(channel_id, event.get("ts", thread_ts), "eyes")
-            # Send "running" reply first (fire-and-forget from SDK thread)
+            # 先发送“处理中...”回复（从 SDK 线程 fire-and-forget）
             self._send_running_reply(channel_id, thread_ts)
             asyncio.run_coroutine_threadsafe(self.bus.publish_inbound(inbound), self._loop)

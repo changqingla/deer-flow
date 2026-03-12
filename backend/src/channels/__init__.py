@@ -1,8 +1,7 @@
-"""IM Channel integration for AgentFlow.
-
-Provides a pluggable channel system that connects external messaging platforms
-(Feishu/Lark, Slack, Telegram) to the AgentFlow agent via the ChannelManager,
-which uses ``langgraph-sdk`` to communicate with the underlying LangGraph Server.
+"""
+提供可插拔的通道系统，通过 ChannelManager 将外部消息平台
+（Feishu/Lark、Slack、Telegram）连接到 AgentFlow。
+ChannelManager 使用 ``langgraph-sdk`` 与底层 LangGraph Server 通信。
 """
 
 from src.channels.base import Channel

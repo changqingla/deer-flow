@@ -5,13 +5,13 @@ from src.skills import load_skills
 
 
 def _build_subagent_section(max_concurrent: int) -> str:
-    """Build the subagent system prompt section with dynamic concurrency limit.
+    """构建子代理系统提示词片段（并发上限可动态注入）。
 
-    Args:
-        max_concurrent: Maximum number of concurrent subagent calls allowed per response.
+    参数：
+        max_concurrent: 每次响应允许的最大并发子代理调用数。
 
-    Returns:
-        Formatted subagent section string.
+    返回：
+        格式化后的子代理提示词片段。
     """
     n = max_concurrent
     return f"""<subagent_system>
@@ -101,42 +101,42 @@ For complex queries, break them down into focused sub-tasks and execute in paral
 **Usage Example 1 - Single Batch (≤{n} sub-tasks):**
 
 ```python
-# User asks: "Why is Tencent's stock price declining?"
-# Thinking: 3 sub-tasks → fits in 1 batch
+# 用户提问："为什么腾讯股价下跌？"
+# 思考：3 个子任务 → 1 个批次可完成
 
-# Turn 1: Launch 3 subagents in parallel
+# 第 1 轮：并行启动 3 个子代理
 task(description="Tencent financial data", prompt="...", subagent_type="general-purpose")
 task(description="Tencent news & regulation", prompt="...", subagent_type="general-purpose")
 task(description="Industry & market trends", prompt="...", subagent_type="general-purpose")
-# All 3 run in parallel → synthesize results
+# 3 个子代理并行执行 → 汇总结果
 ```
 
 **Usage Example 2 - Multiple Batches (>{n} sub-tasks):**
 
 ```python
-# User asks: "Compare AWS, Azure, GCP, Alibaba Cloud, and Oracle Cloud"
-# Thinking: 5 sub-tasks → need multiple batches (max {n} per batch)
+# 用户提问："比较 AWS、Azure、GCP、阿里云和 Oracle Cloud"
+# 思考：5 个子任务 → 需要多批次（每批最多 {n} 个）
 
-# Turn 1: Launch first batch of {n}
+# 第 1 轮：启动第一个批次（{n} 个）
 task(description="AWS analysis", prompt="...", subagent_type="general-purpose")
 task(description="Azure analysis", prompt="...", subagent_type="general-purpose")
 task(description="GCP analysis", prompt="...", subagent_type="general-purpose")
 
-# Turn 2: Launch remaining batch (after first batch completes)
+# 第 2 轮：首批完成后启动剩余批次
 task(description="Alibaba Cloud analysis", prompt="...", subagent_type="general-purpose")
 task(description="Oracle Cloud analysis", prompt="...", subagent_type="general-purpose")
 
-# Turn 3: Synthesize ALL results from both batches
+# 第 3 轮：汇总两个批次的全部结果
 ```
 
 **Counter-Example - Direct Execution (NO subagents):**
 
 ```python
-# User asks: "Run the tests"
-# Thinking: Cannot decompose into parallel sub-tasks
-# → Execute directly
+# 用户提问："运行测试"
+# 思考：无法拆解为可并行的子任务
+# → 直接执行
 
-bash("npm test")  # Direct execution, not task()
+bash("npm test")  # 直接执行，不走 task()
 ```
 
 **CRITICAL**:
@@ -283,13 +283,13 @@ Recent breakthroughs in language models have also accelerated progress
 
 
 def _get_memory_context(agent_name: str | None = None) -> str:
-    """Get memory context for injection into system prompt.
+    """获取用于系统提示词注入的记忆上下文。
 
-    Args:
-        agent_name: If provided, loads per-agent memory. If None, loads global memory.
+    参数：
+        agent_name: 若提供则加载该 agent 的记忆；否则加载全局记忆。
 
-    Returns:
-        Formatted memory context string wrapped in XML tags, or empty string if disabled.
+    返回：
+        以 XML 标签包裹的格式化记忆上下文；若禁用则返回空字符串。
     """
     try:
         from src.agents.memory import format_memory_for_injection, get_memory_data
@@ -315,10 +315,10 @@ def _get_memory_context(agent_name: str | None = None) -> str:
 
 
 def get_skills_prompt_section(available_skills: set[str] | None = None) -> str:
-    """Generate the skills prompt section with available skills list.
+    """生成技能提示词片段（包含可用技能列表）。
 
-    Returns the <skill_system>...</skill_system> block listing all enabled skills,
-    suitable for injection into any agent's system prompt.
+    返回 `<skill_system>...</skill_system>` 片段，列出全部启用技能，
+    便于注入到任意 agent 的系统提示词中。
     """
     skills = load_skills(enabled_only=True)
 
@@ -359,7 +359,7 @@ You have access to skills that provide optimized workflows for specific tasks. E
 
 
 def get_agent_soul(agent_name: str | None) -> str:
-    # Append SOUL.md (agent personality) if present
+    # 若存在 SOUL.md（agent 个性设定），则附加到提示词
     soul = load_agent_soul(agent_name)
     if soul:
         return f"<soul>\n{soul}\n</soul>\n" if soul else ""
@@ -367,14 +367,14 @@ def get_agent_soul(agent_name: str | None) -> str:
 
 
 def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagents: int = 3, *, agent_name: str | None = None, available_skills: set[str] | None = None) -> str:
-    # Get memory context
+    # 获取记忆上下文
     memory_context = _get_memory_context(agent_name)
 
-    # Include subagent section only if enabled (from runtime parameter)
+    # 仅在运行时启用子代理时注入对应片段
     n = max_concurrent_subagents
     subagent_section = _build_subagent_section(n) if subagent_enabled else ""
 
-    # Add subagent reminder to critical_reminders if enabled
+    # 若启用子代理，则向 critical_reminders 注入提醒
     subagent_reminder = (
         "- **Orchestrator Mode**: You are a task orchestrator - decompose complex tasks into parallel sub-tasks. "
         f"**HARD LIMIT: max {n} `task` calls per response.** "
@@ -383,7 +383,7 @@ def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagen
         else ""
     )
 
-    # Add subagent thinking guidance if enabled
+    # 若启用子代理，则追加思考阶段引导
     subagent_thinking = (
         "- **DECOMPOSITION CHECK: Can this task be broken into 2+ parallel sub-tasks? If YES, COUNT them. "
         f"If count > {n}, you MUST plan batches of ≤{n} and only launch the FIRST batch now. "
@@ -392,10 +392,10 @@ def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagen
         else ""
     )
 
-    # Get skills section
+    # 获取技能提示词片段
     skills_section = get_skills_prompt_section(available_skills)
 
-    # Format the prompt with dynamic skills and memory
+    # 用动态技能与记忆上下文渲染完整提示词
     prompt = SYSTEM_PROMPT_TEMPLATE.format(
         agent_name=agent_name or "AgentFlow",
         soul=get_agent_soul(agent_name),

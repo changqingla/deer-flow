@@ -1,4 +1,4 @@
-"""Live integration tests for AgentFlowClient with real API.
+"""
 
 These tests require a working config.yaml with valid API credentials.
 They are skipped in CI and must be run explicitly:

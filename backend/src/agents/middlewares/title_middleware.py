@@ -1,4 +1,4 @@
-"""Middleware for automatic thread title generation."""
+"""自动生成线程标题的中间件。"""
 
 from typing import NotRequired, override
 
@@ -11,52 +11,52 @@ from src.models import create_chat_model
 
 
 class TitleMiddlewareState(AgentState):
-    """Compatible with the `ThreadState` schema."""
+    """与 `ThreadState` 模式兼容。"""
 
     title: NotRequired[str | None]
 
 
 class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
-    """Automatically generate a title for the thread after the first user message."""
+    """在首轮用户交互后自动生成线程标题。"""
 
     state_schema = TitleMiddlewareState
 
     def _should_generate_title(self, state: TitleMiddlewareState) -> bool:
-        """Check if we should generate a title for this thread."""
+        """判断当前线程是否需要生成标题。"""
         config = get_title_config()
         if not config.enabled:
             return False
 
-        # Check if thread already has a title in state
+        # 若状态中已有标题则无需生成
         if state.get("title"):
             return False
 
-        # Check if this is the first turn (has at least one user message and one assistant response)
+        # 检查是否为首轮完整交互（至少含 1 条用户消息和 1 条 assistant 回复）
         messages = state.get("messages", [])
         if len(messages) < 2:
             return False
 
-        # Count user and assistant messages
+        # 统计用户消息与 assistant 消息数量
         user_messages = [m for m in messages if m.type == "human"]
         assistant_messages = [m for m in messages if m.type == "ai"]
 
-        # Generate title after first complete exchange
+        # 在首轮完整往返后生成标题
         return len(user_messages) == 1 and len(assistant_messages) >= 1
 
     async def _generate_title(self, state: TitleMiddlewareState) -> str:
-        """Generate a concise title based on the conversation."""
+        """根据对话内容生成简洁标题。"""
         config = get_title_config()
         messages = state.get("messages", [])
 
-        # Get first user message and first assistant response
+        # 获取首条用户消息与首条 assistant 回复
         user_msg_content = next((m.content for m in messages if m.type == "human"), "")
         assistant_msg_content = next((m.content for m in messages if m.type == "ai"), "")
 
-        # Ensure content is string (LangChain messages can have list content)
+        # 确保内容为字符串（LangChain 消息内容可能为列表）
         user_msg = str(user_msg_content) if user_msg_content else ""
         assistant_msg = str(assistant_msg_content) if assistant_msg_content else ""
 
-        # Use a lightweight model to generate title
+        # 使用轻量模型生成标题
         model = create_chat_model(thinking_enabled=False)
 
         prompt = config.prompt_template.format(
@@ -67,27 +67,27 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
 
         try:
             response = await model.ainvoke(prompt)
-            # Ensure response content is string
+            # 确保响应内容为字符串
             title_content = str(response.content) if response.content else ""
             title = title_content.strip().strip('"').strip("'")
-            # Limit to max characters
+            # 限制最大字符长度
             return title[: config.max_chars] if len(title) > config.max_chars else title
         except Exception as e:
             print(f"Failed to generate title: {e}")
-            # Fallback: use first part of user message (by character count)
-            fallback_chars = min(config.max_chars, 50)  # Use max_chars or 50, whichever is smaller
+            # 回退方案：截取用户消息前缀（按字符数）
+            fallback_chars = min(config.max_chars, 50)  # 取 max_chars 与 50 的较小值
             if len(user_msg) > fallback_chars:
                 return user_msg[:fallback_chars].rstrip() + "..."
             return user_msg if user_msg else "New Conversation"
 
     @override
     async def aafter_model(self, state: TitleMiddlewareState, runtime: Runtime) -> dict | None:
-        """Generate and set thread title after the first agent response."""
+        """在首轮 agent 响应后生成并写入线程标题。"""
         if self._should_generate_title(state):
             title = await self._generate_title(state)
             print(f"Generated thread title: {title}")
 
-            # Store title in state (will be persisted by checkpointer if configured)
+            # 将标题写入状态（若配置了 checkpointer 将被持久化）
             return {"title": title}
 
         return None

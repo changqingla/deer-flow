@@ -2,60 +2,61 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class VolumeMountConfig(BaseModel):
-    """Configuration for a volume mount."""
+    """卷挂载配置。"""
 
-    host_path: str = Field(..., description="Path on the host machine")
-    container_path: str = Field(..., description="Path inside the container")
-    read_only: bool = Field(default=False, description="Whether the mount is read-only")
+    host_path: str = Field(..., description="宿主机路径")
+    container_path: str = Field(..., description="容器内路径")
+    read_only: bool = Field(default=False, description="是否只读挂载")
 
 
 class SandboxConfig(BaseModel):
-    """Config section for a sandbox.
+    """
+    沙箱通用配置。
 
-    Common options:
-        use: Class path of the sandbox provider (required)
+    通用选项：
+        use: 沙箱提供者的类路径（必填）
 
-    AioSandboxProvider specific options:
-        image: Docker image to use (default: enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest)
-        port: Base port for sandbox containers (default: 8080)
-        replicas: Maximum number of concurrent sandbox containers (default: 3). When the limit is reached the least-recently-used sandbox is evicted to make room.
-        container_prefix: Prefix for container names (default: deer-flow-sandbox)
-        idle_timeout: Idle timeout in seconds before sandbox is released (default: 600 = 10 minutes). Set to 0 to disable.
-        mounts: List of volume mounts to share directories with the container
-        environment: Environment variables to inject into the container (values starting with $ are resolved from host env)
+    AioSandboxProvider 专有选项：
+        image: 使用的 Docker 镜像（默认：enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest）
+        port: 沙箱容器基础端口（默认：8080）
+        replicas: 并发沙箱容器最大数量（默认：3）。达到上限后会驱逐最近最少使用的实例以腾出空间。
+        container_prefix: 容器名称前缀（默认：deer-flow-sandbox）
+        idle_timeout: 沙箱释放前的空闲超时（秒）（默认：600 = 10 分钟）。设为 0 可禁用。
+        mounts: 与容器共享目录的卷挂载列表
+        environment: 注入容器的环境变量（以 `$` 开头的值会从宿主机环境解析）
     """
 
     use: str = Field(
         ...,
-        description="Class path of the sandbox provider (e.g. src.sandbox.local:LocalSandboxProvider)",
+        description="沙箱提供者的类路径（例如：src.sandbox.local:LocalSandboxProvider）",
     )
     image: str | None = Field(
         default=None,
-        description="Docker image to use for the sandbox container",
+        description="沙箱容器使用的 Docker 镜像",
     )
     port: int | None = Field(
         default=None,
-        description="Base port for sandbox containers",
+        description="沙箱容器基础端口",
     )
     replicas: int | None = Field(
         default=None,
-        description="Maximum number of concurrent sandbox containers (default: 3). When the limit is reached the least-recently-used sandbox is evicted to make room.",
+        description="并发沙箱容器最大数量（默认：3）。达到上限后会驱逐最近最少使用的实例以腾出空间。",
     )
     container_prefix: str | None = Field(
         default=None,
-        description="Prefix for container names",
+        description="容器名称前缀",
     )
     idle_timeout: int | None = Field(
         default=None,
-        description="Idle timeout in seconds before sandbox is released (default: 600 = 10 minutes). Set to 0 to disable.",
+        description="沙箱释放前的空闲超时（秒）（默认：600 = 10 分钟）。设为 0 可禁用。",
     )
     mounts: list[VolumeMountConfig] = Field(
         default_factory=list,
-        description="List of volume mounts to share directories between host and container",
+        description="宿主机与容器之间共享目录的卷挂载列表",
     )
     environment: dict[str, str] = Field(
         default_factory=dict,
-        description="Environment variables to inject into the sandbox container. Values starting with $ will be resolved from host environment variables.",
+        description="注入到沙箱容器的环境变量。以 `$` 开头的值会从宿主机环境变量中解析。",
     )
 
     model_config = ConfigDict(extra="allow")

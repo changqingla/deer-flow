@@ -1,4 +1,4 @@
-"""Test configuration for the backend test suite.
+"""
 
 Sets up sys.path and pre-mocks modules that would cause circular import
 issues when unit-testing lightweight config/registry code in isolation.

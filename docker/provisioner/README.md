@@ -192,7 +192,7 @@ The provisioner runs as part of the docker-compose-dev stack:
 make docker-start
 
 # Or start just the provisioner
-docker compose -p deer-flow-dev -f docker/docker-compose-dev.yaml up -d provisioner
+docker compose -p agent-flow-dev -f docker/docker-compose-dev.yaml up -d provisioner
 ```
 
 The compose file:
@@ -209,21 +209,21 @@ The compose file:
 curl http://localhost:8002/health
 
 # Create a sandbox (via provisioner container for internal DNS)
-docker exec deer-flow-provisioner curl -X POST http://localhost:8002/api/sandboxes \
+docker exec agent-flow-provisioner curl -X POST http://localhost:8002/api/sandboxes \
   -H "Content-Type: application/json" \
   -d '{"sandbox_id":"test-001","thread_id":"thread-001"}'
 
 # Check sandbox status
-docker exec deer-flow-provisioner curl http://localhost:8002/api/sandboxes/test-001
+docker exec agent-flow-provisioner curl http://localhost:8002/api/sandboxes/test-001
 
 # List all sandboxes
-docker exec deer-flow-provisioner curl http://localhost:8002/api/sandboxes
+docker exec agent-flow-provisioner curl http://localhost:8002/api/sandboxes
 
 # Verify Pod and Service in K8s
-kubectl get pod,svc -n deer-flow -l sandbox-id=test-001
+kubectl get pod,svc --n agent-flow -l sandbox-id=test-001
 
 # Delete sandbox
-docker exec deer-flow-provisioner curl -X DELETE http://localhost:8002/api/sandboxes/test-001
+docker exec agent-flow-provisioner curl -X DELETE http://localhost:8002/api/sandboxes/test-001
 ```
 
 ### Verify from Backend Containers
@@ -232,10 +232,10 @@ Once a sandbox is created, the backend containers (gateway, langgraph) can acces
 
 ```bash
 # Get sandbox URL from provisioner
-SANDBOX_URL=$(docker exec deer-flow-provisioner curl -s http://localhost:8002/api/sandboxes/test-001 | jq -r .sandbox_url)
+SANDBOX_URL=$(docker exec agent-flow-provisioner curl -s http://localhost:8002/api/sandboxes/test-001 | jq -r .sandbox_url)
 
 # Test from gateway container
-docker exec deer-flow-gateway curl -s $SANDBOX_URL/v1/sandbox
+docker exec agent-flow-gateway curl -s $SANDBOX_URL/v1/sandbox
 ```
 
 ## Troubleshooting
@@ -257,7 +257,7 @@ docker exec deer-flow-gateway curl -s $SANDBOX_URL/v1/sandbox
 - Ensure the compose mount source is a file (e.g., `~/.kube/config`) not a directory
 - Verify inside container:
   ```bash
-  docker exec deer-flow-provisioner ls -ld /root/.kube/config
+  docker exec agent-flow-provisioner ls -ld /root/.kube/config
   ```
 - Expected output should indicate a regular file (`-`), not a directory (`d`)
 
@@ -285,7 +285,7 @@ docker exec deer-flow-gateway curl -s $SANDBOX_URL/v1/sandbox
 - Verify the paths exist on your host machine:
   ```bash
   ls -la /path/to/skills
-  ls -la /path/to/backend/.deer-flow/threads
+  ls -la /path/to/backend/.agent-flow/threads
   ```
 
 ### Issue: Pod stuck in "ContainerCreating"

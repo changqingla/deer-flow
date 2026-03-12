@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Improve a skill description based on eval results.
+"""
 
 Takes eval results (from run_eval.py) and generates an improved description
 by calling `claude -p` as a subprocess (same auth pattern as run_eval.py —
@@ -18,7 +18,7 @@ from scripts.utils import parse_skill_md
 
 
 def _call_claude(prompt: str, model: str | None, timeout: int = 300) -> str:
-    """Run `claude -p` with the prompt on stdin and return the text response.
+    """
 
     Prompt goes over stdin (not argv) because it embeds the full SKILL.md
     body and can easily exceed comfortable argv length.
@@ -117,7 +117,7 @@ Current scores ({scores_summary}):
                 prompt += f'Note: {h["note"]}\n'
             prompt += "</attempt>\n\n"
 
-    prompt += f"""</scores_summary>
+    """
 
 Skill content (for context on what the skill does):
 <skill_content>

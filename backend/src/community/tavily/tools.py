@@ -16,10 +16,10 @@ def _get_tavily_client() -> TavilyClient:
 
 @tool("web_search", parse_docstring=True)
 def web_search_tool(query: str) -> str:
-    """Search the web.
+    """执行网页搜索。
 
-    Args:
-        query: The query to search for.
+    参数：
+        query: 搜索查询词。
     """
     config = get_app_config().get_tool_config("web_search")
     max_results = 5
@@ -42,14 +42,14 @@ def web_search_tool(query: str) -> str:
 
 @tool("web_fetch", parse_docstring=True)
 def web_fetch_tool(url: str) -> str:
-    """Fetch the contents of a web page at a given URL.
-    Only fetch EXACT URLs that have been provided directly by the user or have been returned in results from the web_search and web_fetch tools.
-    This tool can NOT access content that requires authentication, such as private Google Docs or pages behind login walls.
-    Do NOT add www. to URLs that do NOT have them.
-    URLs must include the schema: https://example.com is a valid URL while example.com is an invalid URL.
+    """抓取给定 URL 的网页内容。
+    只能抓取以下来源的精确 URL：用户直接提供，或来自 web_search / web_fetch 工具结果。
+    本工具无法访问需要认证的内容（例如私有 Google Docs、登录墙后页面）。
+    不要给原本不带 `www.` 的 URL 人工添加 `www.`。
+    URL 必须包含协议头：`https://example.com` 是合法 URL，`example.com` 非法。
 
-    Args:
-        url: The URL to fetch the contents of.
+    参数：
+        url: 要抓取内容的 URL。
     """
     client = _get_tavily_client()
     res = client.extract([url])

@@ -1,9 +1,9 @@
-"""Memory module for AgentFlow.
+"""全局记忆机制入口模块。
 
-This module provides a global memory mechanism that:
-- Stores user context and conversation history in memory.json
-- Uses LLM to summarize and extract facts from conversations
-- Injects relevant memory into system prompts for personalized responses
+该模块提供以下能力：
+- 在 `memory.json` 中存储用户上下文与会话历史
+- 使用 LLM 对对话进行摘要与事实提取
+- 将相关记忆注入系统提示词以实现个性化回复
 """
 
 from src.agents.memory.prompt import (
@@ -26,17 +26,17 @@ from src.agents.memory.updater import (
 )
 
 __all__ = [
-    # Prompt utilities
+    # 提示词工具
     "MEMORY_UPDATE_PROMPT",
     "FACT_EXTRACTION_PROMPT",
     "format_memory_for_injection",
     "format_conversation_for_update",
-    # Queue
+    # 队列
     "ConversationContext",
     "MemoryUpdateQueue",
     "get_memory_queue",
     "reset_memory_queue",
-    # Updater
+    # 更新器
     "MemoryUpdater",
     "get_memory_data",
     "reload_memory_data",

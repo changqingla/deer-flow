@@ -1,4 +1,4 @@
-"""Feishu/Lark channel — connects to Feishu via WebSocket (no public IP needed)."""
+"""飞书（Feishu/Lark）通道：通过 WebSocket 连接飞书（无需公网 IP）。"""
 
 from __future__ import annotations
 
@@ -15,21 +15,20 @@ logger = logging.getLogger(__name__)
 
 
 class FeishuChannel(Channel):
-    """Feishu/Lark IM channel using the ``lark-oapi`` WebSocket client.
+    """
+    配置项（``config.yaml`` 中 ``channels.feishu``）：
+        - ``app_id``: 飞书应用 ID。
+        - ``app_secret``: 飞书应用密钥。
+        - ``verification_token``: （可选）事件校验 token。
 
-    Configuration keys (in ``config.yaml`` under ``channels.feishu``):
-        - ``app_id``: Feishu app ID.
-        - ``app_secret``: Feishu app secret.
-        - ``verification_token``: (optional) Event verification token.
+    通道采用 WebSocket 长连接模式，因此不需要公网 IP。
 
-    The channel uses WebSocket long-connection mode so no public IP is required.
-
-    Message flow:
-        1. User sends a message → bot adds "OK" emoji reaction
-        2. Bot replies in thread: "Working on it......"
-        3. Agent processes the message and returns a result
-        4. Bot replies in thread with the result
-        5. Bot adds "DONE" emoji reaction to the original message
+    消息流程：
+        1. 用户发送消息 → 机器人添加 "OK" emoji 反应
+        2. 机器人在线程中回复："Working on it......"
+        3. Agent 处理消息并返回结果
+        4. 机器人在线程中回复结果
+        5. 机器人在原消息上添加 "DONE" emoji 反应
     """
 
     def __init__(self, bus: MessageBus, config: dict[str, Any]) -> None:
@@ -94,10 +93,9 @@ class FeishuChannel(Channel):
         self._running = True
         self.bus.subscribe_outbound(self._on_outbound)
 
-        # Both ws.Client construction and start() must happen in a dedicated
-        # thread with its own event loop.  lark-oapi caches the running loop
-        # at construction time and later calls loop.run_until_complete(),
-        # which conflicts with an already-running uvloop.
+        # 飞书 WebSocket 客户端（ws.Client）的构造与 start() 都必须在独立线程执行，并使用该线程自己的事件循环。
+        # 飞书 SDK（lark-oapi）会在构造时缓存当前事件循环，随后调用 loop.run_until_complete()；
+        # 若复用已运行中的 uvloop 会产生冲突。
         self._thread = threading.Thread(
             target=self._run_ws,
             args=(app_id, app_secret),
@@ -107,17 +105,14 @@ class FeishuChannel(Channel):
         logger.info("Feishu channel started")
 
     def _run_ws(self, app_id: str, app_secret: str) -> None:
-        """Construct and run the lark WS client in a thread with a fresh event loop.
+        """
+        lark-oapi SDK 在导入时会捕获一个模块级事件循环
+        （``lark_oapi.ws.client.loop``）。当 uvicorn 使用 uvloop 时，
+        该循环通常是主线程 uvloop，且已在运行，因此 ``Client.start()``
+        内部调用 ``loop.run_until_complete()`` 会抛出 ``RuntimeError``。
 
-        The lark-oapi SDK captures a module-level event loop at import time
-        (``lark_oapi.ws.client.loop``).  When uvicorn uses uvloop, that
-        captured loop is the *main* thread's uvloop — which is already
-        running, so ``loop.run_until_complete()`` inside ``Client.start()``
-        raises ``RuntimeError``.
-
-        We work around this by creating a plain asyncio event loop for this
-        thread and patching the SDK's module-level reference before calling
-        ``start()``.
+        这里的绕过方案是：为当前线程创建一个普通 asyncio 事件循环，
+        并在调用 ``start()`` 前替换 SDK 模块级循环引用。
         """
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -125,9 +120,8 @@ class FeishuChannel(Channel):
             import lark_oapi as lark
             import lark_oapi.ws.client as _ws_client_mod
 
-            # Replace the SDK's module-level loop so Client.start() uses
-            # this thread's (non-running) event loop instead of the main
-            # thread's uvloop.
+            # 替换 SDK 的模块级 loop，使 Client.start() 使用当前线程
+            # 的（未运行）事件循环，而不是主线程 uvloop。
             _ws_client_mod.loop = loop
 
             event_handler = lark.EventDispatcherHandler.builder("", "").register_p2_im_message_receive_v1(self._on_message).build()
@@ -167,15 +161,15 @@ class FeishuChannel(Channel):
         for attempt in range(_max_retries):
             try:
                 if msg.thread_ts:
-                    # Reply in thread (话题)
+                    # 在线程中回复（话题）
                     request = self._ReplyMessageRequest.builder().message_id(msg.thread_ts).request_body(self._ReplyMessageRequestBody.builder().msg_type("interactive").content(content).reply_in_thread(True).build()).build()
                     await asyncio.to_thread(self._api_client.im.v1.message.reply, request)
                 else:
-                    # Send new message
+                    # 发送新消息
                     request = self._CreateMessageRequest.builder().receive_id_type("chat_id").request_body(self._CreateMessageRequestBody.builder().receive_id(msg.chat_id).msg_type("interactive").content(content).build()).build()
                     await asyncio.to_thread(self._api_client.im.v1.message.create, request)
 
-                # Add "DONE" reaction to the original message on final reply
+                # 最终回复时，在原消息添加 "DONE" 反应
                 if msg.is_final and msg.thread_ts:
                     await self._add_reaction(msg.thread_ts, "DONE")
 
@@ -183,7 +177,7 @@ class FeishuChannel(Channel):
             except Exception as exc:
                 last_exc = exc
                 if attempt < _max_retries - 1:
-                    delay = 2**attempt  # 1s, 2s
+                    delay = 2**attempt  # 1 秒、2 秒
                     logger.warning(
                         "[Feishu] send failed (attempt %d/%d), retrying in %ds: %s",
                         attempt + 1,
@@ -200,7 +194,7 @@ class FeishuChannel(Channel):
         if not self._api_client:
             return False
 
-        # Check size limits (image: 10MB, file: 30MB)
+        # 检查大小限制（图片 10MB，文件 30MB）
         if attachment.is_image and attachment.size > 10 * 1024 * 1024:
             logger.warning("[Feishu] image too large (%d bytes), skipping: %s", attachment.size, attachment.filename)
             return False
@@ -232,7 +226,7 @@ class FeishuChannel(Channel):
             return False
 
     async def _upload_image(self, path) -> str:
-        """Upload an image to Feishu and return the image_key."""
+        """上传图片到飞书并返回 image_key。"""
         with open(str(path), "rb") as f:
             request = self._CreateImageRequest.builder().request_body(self._CreateImageRequestBody.builder().image_type("message").image(f).build()).build()
             response = await asyncio.to_thread(self._api_client.im.v1.image.create, request)
@@ -241,7 +235,7 @@ class FeishuChannel(Channel):
         return response.data.image_key
 
     async def _upload_file(self, path, filename: str) -> str:
-        """Upload a file to Feishu and return the file_key."""
+        """上传文件到飞书并返回 file_key。"""
         suffix = path.suffix.lower() if hasattr(path, "suffix") else ""
         if suffix in (".xls", ".xlsx", ".csv"):
             file_type = "xls"
@@ -261,14 +255,14 @@ class FeishuChannel(Channel):
             raise RuntimeError(f"Feishu file upload failed: code={response.code}, msg={response.msg}")
         return response.data.file_key
 
-    # -- message formatting ------------------------------------------------
+    # -- 消息格式化 ----------------------------------------------------------
 
     @staticmethod
     def _build_card_content(text: str) -> str:
-        """Build a Feishu interactive card with markdown content.
+        """
+        飞书 interactive card 原生支持 markdown 渲染，
+        包括标题、粗体/斜体、代码块、列表和链接。
 
-        Feishu's interactive card format natively renders markdown, including
-        headers, bold/italic, code blocks, lists, and links.
         """
         card = {
             "config": {"wide_screen_mode": True},
@@ -276,10 +270,10 @@ class FeishuChannel(Channel):
         }
         return json.dumps(card)
 
-    # -- reaction helpers --------------------------------------------------
+    # -- 反应辅助 ------------------------------------------------------------
 
     async def _add_reaction(self, message_id: str, emoji_type: str = "THUMBSUP") -> None:
-        """Add an emoji reaction to a message."""
+        """给消息添加 emoji 反应。"""
         if not self._api_client or not self._CreateMessageReactionRequest:
             return
         try:
@@ -290,7 +284,7 @@ class FeishuChannel(Channel):
             logger.exception("[Feishu] failed to add reaction '%s' to message %s", emoji_type, message_id)
 
     async def _send_running_reply(self, message_id: str) -> None:
-        """Reply to a message in-thread with a 'Working on it...' hint."""
+        """在线程中回复一条“处理中...”提示。"""
         if not self._api_client:
             return
         try:
@@ -301,11 +295,11 @@ class FeishuChannel(Channel):
         except Exception:
             logger.exception("[Feishu] failed to send running reply for message %s", message_id)
 
-    # -- internal ----------------------------------------------------------
+    # -- 内部 ---------------------------------------------------------------
 
     @staticmethod
     def _log_future_error(fut, name: str, msg_id: str) -> None:
-        """Callback for run_coroutine_threadsafe futures to surface errors."""
+        """`run_coroutine_threadsafe` 返回 Future 的错误回调。"""
         try:
             exc = fut.exception()
             if exc:
@@ -314,7 +308,7 @@ class FeishuChannel(Channel):
             pass
 
     def _on_message(self, event) -> None:
-        """Called by lark-oapi when a message is received (runs in lark thread)."""
+        """`lark-oapi` 收到消息时调用（运行于 lark 线程）。"""
         try:
             logger.info("[Feishu] raw event received: type=%s", type(event).__name__)
             message = event.event.message
@@ -322,11 +316,11 @@ class FeishuChannel(Channel):
             msg_id = message.message_id
             sender_id = event.event.sender.sender_id.open_id
 
-            # root_id is set when the message is a reply within a Feishu thread.
-            # Use it as topic_id so all replies share the same AgentFlow thread.
+            # 当消息是飞书线程内回复时会携带 root_id。
+            # 将其作为 topic_id，确保同一回复链复用同一 AgentFlow 线程。
             root_id = getattr(message, "root_id", None) or None
 
-            # Parse message content
+            # 解析消息内容
             content = json.loads(message.content)
             text = content.get("text", "").strip()
             logger.info(
@@ -342,13 +336,13 @@ class FeishuChannel(Channel):
                 logger.info("[Feishu] empty text, ignoring message")
                 return
 
-            # Check if it's a command
+            # 判断是否为命令
             if text.startswith("/"):
                 msg_type = InboundMessageType.COMMAND
             else:
                 msg_type = InboundMessageType.CHAT
 
-            # topic_id: use root_id for replies (same topic), msg_id for new messages (new topic)
+            # 主题 ID（topic_id）：回复消息使用 root_id（同主题），新消息使用 msg_id（新主题）
             topic_id = root_id or msg_id
 
             inbound = self._make_inbound(
@@ -361,10 +355,10 @@ class FeishuChannel(Channel):
             )
             inbound.topic_id = topic_id
 
-            # Schedule on the async event loop
+            # 在异步事件循环上调度
             if self._main_loop and self._main_loop.is_running():
                 logger.info("[Feishu] publishing inbound message to bus (type=%s, msg_id=%s)", msg_type.value, msg_id)
-                # Schedule all coroutines and attach error logging to futures
+                # 调度所有协程，并给 Future 绑定错误日志回调
                 for name, coro in [
                     ("add_reaction", self._add_reaction(msg_id, "OK")),
                     ("send_running_reply", self._send_running_reply(msg_id)),

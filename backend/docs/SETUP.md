@@ -10,7 +10,7 @@ AgentFlow uses a YAML configuration file that should be placed in the **project 
 
 1. **Navigate to project root**:
    ```bash
-   cd /path/to/deer-flow
+   cd /path/to/Agent-flow
    ```
 
 2. **Copy example configuration**:
@@ -71,7 +71,7 @@ If you skip this step, the image will be automatically pulled on first agent exe
 
 ```bash
 # Check where the backend is looking
-cd deer-flow/backend
+cd Agent-flow/backend
 python -c "from src.config.app_config import AppConfig; print(AppConfig.resolve_config_path())"
 ```
 

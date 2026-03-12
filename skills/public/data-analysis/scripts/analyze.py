@@ -134,7 +134,7 @@ def _load_excel(
 
         try:
             con.execute(
-                f"""
+                """
                 CREATE TABLE "{table_name}" AS
                 SELECT * FROM st_read(
                     '{file_path}',
@@ -170,7 +170,7 @@ def _load_csv(
 
     try:
         con.execute(
-            f"""
+            """
             CREATE TABLE "{table_name}" AS
             SELECT * FROM read_csv_auto('{file_path}')
         """

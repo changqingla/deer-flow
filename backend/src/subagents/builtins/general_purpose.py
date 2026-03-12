@@ -1,4 +1,4 @@
-"""General-purpose subagent configuration."""
+"""通用型子代理配置。"""
 
 from src.subagents.config import SubagentConfig
 

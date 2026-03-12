@@ -1,4 +1,4 @@
-"""OAuth token support for MCP HTTP/SSE servers."""
+"""为 MCP HTTP/SSE 服务提供 OAuth Token 支持。"""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class _OAuthToken:
-    """Cached OAuth token."""
+    """缓存的 OAuth token。"""
 
     access_token: str
     token_type: str
@@ -23,7 +23,7 @@ class _OAuthToken:
 
 
 class OAuthTokenManager:
-    """Acquire/cache/refresh OAuth tokens for MCP servers."""
+    """为 MCP 服务获取、缓存并刷新 OAuth token。"""
 
     def __init__(self, oauth_by_server: dict[str, McpOAuthConfig]):
         self._oauth_by_server = oauth_by_server
@@ -120,7 +120,7 @@ class OAuthTokenManager:
 
 
 def build_oauth_tool_interceptor(extensions_config: ExtensionsConfig) -> Any | None:
-    """Build a tool interceptor that injects OAuth Authorization headers."""
+    """构建会注入 OAuth `Authorization` 请求头的工具拦截器。"""
     token_manager = OAuthTokenManager.from_extensions_config(extensions_config)
     if not token_manager.has_oauth_servers():
         return None
@@ -138,7 +138,7 @@ def build_oauth_tool_interceptor(extensions_config: ExtensionsConfig) -> Any | N
 
 
 async def get_initial_oauth_headers(extensions_config: ExtensionsConfig) -> dict[str, str]:
-    """Get initial OAuth Authorization headers for MCP server connections."""
+    """获取 MCP 服务建立连接时所需的初始 OAuth 授权头。"""
     token_manager = OAuthTokenManager.from_extensions_config(extensions_config)
     if not token_manager.has_oauth_servers():
         return {}

@@ -1,4 +1,4 @@
-"""ChannelService — manages the lifecycle of all IM channels."""
+"""通道服务（ChannelService）：管理所有 IM 通道的生命周期。"""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from src.channels.store import ChannelStore
 
 logger = logging.getLogger(__name__)
 
-# Channel name → import path for lazy loading
+# 通道名 → 延迟加载导入路径
 _CHANNEL_REGISTRY: dict[str, str] = {
     "feishu": "src.channels.feishu:FeishuChannel",
     "slack": "src.channels.slack:SlackChannel",
@@ -20,10 +20,10 @@ _CHANNEL_REGISTRY: dict[str, str] = {
 
 
 class ChannelService:
-    """Manages the lifecycle of all configured IM channels.
+    """
+    从 ``config.yaml`` 的 ``channels`` 配置读取通道设置，
+    实例化已启用通道，并启动 ChannelManager 分发器。
 
-    Reads configuration from ``config.yaml`` under the ``channels`` key,
-    instantiates enabled channels, and starts the ChannelManager dispatcher.
     """
 
     def __init__(self, channels_config: dict[str, Any] | None = None) -> None:
@@ -52,19 +52,19 @@ class ChannelService:
 
     @classmethod
     def from_app_config(cls) -> ChannelService:
-        """Create a ChannelService from the application config."""
+        """根据应用配置创建 ChannelService。"""
         from src.config.app_config import get_app_config
 
         config = get_app_config()
         channels_config = {}
-        # extra fields are allowed by AppConfig (extra="allow")
+        # 应用配置（AppConfig）允许额外字段（extra="allow"）
         extra = config.model_extra or {}
         if "channels" in extra:
             channels_config = extra["channels"]
         return cls(channels_config=channels_config)
 
     async def start(self) -> None:
-        """Start the manager and all enabled channels."""
+        """启动管理器和所有已启用通道。"""
         if self._running:
             return
 
@@ -83,7 +83,7 @@ class ChannelService:
         logger.info("ChannelService started with channels: %s", list(self._channels.keys()))
 
     async def stop(self) -> None:
-        """Stop all channels and the manager."""
+        """停止所有通道和管理器。"""
         for name, channel in list(self._channels.items()):
             try:
                 await channel.stop()
@@ -97,7 +97,7 @@ class ChannelService:
         logger.info("ChannelService stopped")
 
     async def restart_channel(self, name: str) -> bool:
-        """Restart a specific channel. Returns True if successful."""
+        """重启指定通道。成功返回 True。"""
         if name in self._channels:
             try:
                 await self._channels[name].stop()
@@ -113,7 +113,7 @@ class ChannelService:
         return await self._start_channel(name, config)
 
     async def _start_channel(self, name: str, config: dict[str, Any]) -> bool:
-        """Instantiate and start a single channel."""
+        """实例化并启动单个通道。"""
         import_path = _CHANNEL_REGISTRY.get(name)
         if not import_path:
             logger.warning("Unknown channel type: %s", name)
@@ -138,7 +138,7 @@ class ChannelService:
             return False
 
     def get_status(self) -> dict[str, Any]:
-        """Return status information for all channels."""
+        """返回所有通道的状态信息。"""
         channels_status = {}
         for name in _CHANNEL_REGISTRY:
             config = self._config.get(name, {})
@@ -154,18 +154,18 @@ class ChannelService:
         }
 
 
-# -- singleton access -------------------------------------------------------
+# -- 单例访问 ---------------------------------------------------------------
 
 _channel_service: ChannelService | None = None
 
 
 def get_channel_service() -> ChannelService | None:
-    """Get the singleton ChannelService instance (if started)."""
+    """获取 ChannelService 单例（若已启动）。"""
     return _channel_service
 
 
 async def start_channel_service() -> ChannelService:
-    """Create and start the global ChannelService from app config."""
+    """根据应用配置创建并启动全局 ChannelService。"""
     global _channel_service
     if _channel_service is not None:
         return _channel_service
@@ -175,7 +175,7 @@ async def start_channel_service() -> ChannelService:
 
 
 async def stop_channel_service() -> None:
-    """Stop the global ChannelService."""
+    """停止全局 ChannelService。"""
     global _channel_service
     if _channel_service is not None:
         await _channel_service.stop()

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 
 class Sandbox(ABC):
-    """Abstract base class for sandbox environments"""
+    """沙箱环境抽象基类。"""
 
     _id: str
 
@@ -15,67 +15,64 @@ class Sandbox(ABC):
 
     @abstractmethod
     def execute_command(self, command: str) -> str:
-        """Execute bash command in sandbox.
+        """
+        参数：
+            command: 要执行的命令。
 
-        Args:
-            command: The command to execute.
-
-        Returns:
-            The standard or error output of the command.
+        返回：
+            命令执行的标准输出或错误输出。
         """
         pass
 
     @abstractmethod
     def read_file(self, path: str) -> str:
-        """Read the content of a file.
+        """
+        参数：
+            path: 要读取文件的绝对路径。
 
-        Args:
-            path: The absolute path of the file to read.
-
-        Returns:
-            The content of the file.
+        返回：
+            文件内容。
         """
         pass
 
     @abstractmethod
     def list_dir(self, path: str, max_depth=2) -> list[str]:
-        """List the contents of a directory.
+        """
+        参数：
+            path: 要列出的目录绝对路径。
+            max_depth: 最大遍历深度，默认 2。
 
-        Args:
-            path: The absolute path of the directory to list.
-            max_depth: The maximum depth to traverse. Default is 2.
-
-        Returns:
-            The contents of the directory.
+        返回：
+            目录内容。
         """
         pass
 
     @abstractmethod
     def write_file(self, path: str, content: str, append: bool = False) -> None:
-        """Write content to a file.
+        """
+        参数：
+            path: 要写入文件的绝对路径。
+            content: 要写入的文本内容。
+            append: 是否追加写入。False 时会创建或覆盖文件。
 
-        Args:
-            path: The absolute path of the file to write to.
-            content: The text content to write to the file.
-            append: Whether to append the content to the file. If False, the file will be created or overwritten.
         """
         pass
 
     @abstractmethod
     def update_file(self, path: str, content: bytes) -> None:
-        """Update a file with binary content.
+        """
+        参数：
+            path: 要更新文件的绝对路径。
+            content: 要写入文件的二进制内容。
 
-        Args:
-            path: The absolute path of the file to update.
-            content: The binary content to write to the file.
         """
         pass
 
     @abstractmethod
     def delete_file(self, path: str) -> None:
-        """Delete a file.
+        """
+        参数：
+            path: 要删除文件的绝对路径。
 
-        Args:
-            path: The absolute path of the file to delete.
         """
         pass

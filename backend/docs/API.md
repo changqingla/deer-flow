@@ -407,11 +407,11 @@ Content-Type: multipart/form-data
     {
       "filename": "document.pdf",
       "size": 1234567,
-      "path": ".deer-flow/threads/abc123/user-data/uploads/document.pdf",
+      "path": ".agent-flow/threads/abc123/user-data/uploads/document.pdf",
       "virtual_path": "/mnt/user-data/uploads/document.pdf",
       "artifact_url": "/api/threads/abc123/artifacts/mnt/user-data/uploads/document.pdf",
       "markdown_file": "document.md",
-      "markdown_path": ".deer-flow/threads/abc123/user-data/uploads/document.md",
+      "markdown_path": ".agent-flow/threads/abc123/user-data/uploads/document.md",
       "markdown_virtual_path": "/mnt/user-data/uploads/document.md",
       "markdown_artifact_url": "/api/threads/abc123/artifacts/mnt/user-data/uploads/document.md"
     }
@@ -444,7 +444,7 @@ GET /api/threads/{thread_id}/uploads/list
     {
       "filename": "document.pdf",
       "size": 1234567,
-      "path": ".deer-flow/threads/abc123/user-data/uploads/document.pdf",
+      "path": ".agent-flow/threads/abc123/user-data/uploads/document.pdf",
       "virtual_path": "/mnt/user-data/uploads/document.pdf",
       "artifact_url": "/api/threads/abc123/artifacts/mnt/user-data/uploads/document.pdf",
       "extension": ".pdf",

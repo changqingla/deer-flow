@@ -1,4 +1,4 @@
-"""Task tool for delegating work to subagents."""
+"""用于将任务委派给子代理的工具。"""
 
 import logging
 import time
@@ -27,42 +27,41 @@ def task_tool(
     tool_call_id: Annotated[str, InjectedToolCallId],
     max_turns: int | None = None,
 ) -> str:
-    """Delegate a task to a specialized subagent that runs in its own context.
+    """将任务委派给在独立上下文中运行的专用子代理。
 
-    Subagents help you:
-    - Preserve context by keeping exploration and implementation separate
-    - Handle complex multi-step tasks autonomously
-    - Execute commands or operations in isolated contexts
+    子代理可帮助你：
+    - 将探索与实现拆分，降低主上下文污染
+    - 自主处理复杂多步骤任务
+    - 在隔离上下文中执行命令或操作
 
-    Available subagent types:
-    - **general-purpose**: A capable agent for complex, multi-step tasks that require
-      both exploration and action. Use when the task requires complex reasoning,
-      multiple dependent steps, or would benefit from isolated context.
-    - **bash**: Command execution specialist for running bash commands. Use for
-      git operations, build processes, or when command output would be verbose.
+    可用子代理类型：
+    - **general-purpose**：适合需要探索与执行并重的复杂多步骤任务。
+      当任务需要复杂推理、多个依赖步骤，或适合隔离上下文时使用。
+    - **bash**：命令执行型子代理，适合运行 bash 命令。
+      可用于 git 操作、构建流程，或命令输出较冗长的场景。
 
-    When to use this tool:
-    - Complex tasks requiring multiple steps or tools
-    - Tasks that produce verbose output
-    - When you want to isolate context from the main conversation
-    - Parallel research or exploration tasks
+    适用场景：
+    - 需要多步骤或多工具协作的复杂任务
+    - 可能产生大量输出的任务
+    - 希望与主对话隔离上下文的任务
+    - 并行研究或探索任务
 
-    When NOT to use this tool:
-    - Simple, single-step operations (use tools directly)
-    - Tasks requiring user interaction or clarification
+    不适用场景：
+    - 简单单步操作（直接调用工具即可）
+    - 需要用户实时交互或澄清的任务
 
-    Args:
-        description: A short (3-5 word) description of the task for logging/display. ALWAYS PROVIDE THIS PARAMETER FIRST.
-        prompt: The task description for the subagent. Be specific and clear about what needs to be done. ALWAYS PROVIDE THIS PARAMETER SECOND.
-        subagent_type: The type of subagent to use. ALWAYS PROVIDE THIS PARAMETER THIRD.
-        max_turns: Optional maximum number of agent turns. Defaults to subagent's configured max.
+    参数：
+        description: 任务简述（3-5 个词）用于日志/展示。必须第一个提供。
+        prompt: 给子代理的任务说明。请明确、具体。必须第二个提供。
+        subagent_type: 子代理类型。必须第三个提供。
+        max_turns: 可选最大轮数。默认使用子代理配置值。
     """
-    # Get subagent configuration
+    # 获取子代理配置
     config = get_subagent_config(subagent_type)
     if config is None:
         return f"Error: Unknown subagent type '{subagent_type}'. Available: general-purpose, bash"
 
-    # Build config overrides
+    # 构造配置覆盖项
     overrides: dict = {}
 
     skills_section = get_skills_prompt_section()
@@ -75,7 +74,7 @@ def task_tool(
     if overrides:
         config = replace(config, **overrides)
 
-    # Extract parent context from runtime
+    # 从 runtime 提取父级上下文
     sandbox_state = None
     thread_data = None
     thread_id = None
@@ -87,21 +86,21 @@ def task_tool(
         thread_data = runtime.state.get("thread_data")
         thread_id = runtime.context.get("thread_id")
 
-        # Try to get parent model from configurable
+        # 尝试从 configurable 中读取父模型
         metadata = runtime.config.get("metadata", {})
         parent_model = metadata.get("model_name")
 
-        # Get or generate trace_id for distributed tracing
+        # 获取或生成用于分布式追踪的 trace_id
         trace_id = metadata.get("trace_id") or str(uuid.uuid4())[:8]
 
-    # Get available tools (excluding task tool to prevent nesting)
-    # Lazy import to avoid circular dependency
+    # 获取可用工具（排除 task 自身，避免嵌套调用）
+    # 延迟导入以避免循环依赖
     from src.tools import get_available_tools
 
-    # Subagents should not have subagent tools enabled (prevent recursive nesting)
+    # 子代理不应再启用子代理工具（防止递归嵌套）
     tools = get_available_tools(model_name=parent_model, subagent_enabled=False)
 
-    # Create executor
+    # 创建执行器
     executor = SubagentExecutor(
         config=config,
         tools=tools,
@@ -112,21 +111,21 @@ def task_tool(
         trace_id=trace_id,
     )
 
-    # Start background execution (always async to prevent blocking)
-    # Use tool_call_id as task_id for better traceability
+    # 启动后台执行（始终异步，避免阻塞）
+    # 使用 tool_call_id 作为 task_id，提升可追踪性
     task_id = executor.execute_async(prompt, task_id=tool_call_id)
 
-    # Poll for task completion in backend (removes need for LLM to poll)
+    # 由后端轮询任务完成状态（无需 LLM 自行轮询）
     poll_count = 0
     last_status = None
-    last_message_count = 0  # Track how many AI messages we've already sent
-    # Polling timeout: execution timeout + 60s buffer, checked every 5s
+    last_message_count = 0  # 记录已发送的 AI 消息数量
+    # 轮询超时：执行超时 + 60 秒缓冲；每 5 秒检查一次
     max_poll_count = (config.timeout_seconds + 60) // 5
 
     logger.info(f"[trace={trace_id}] Started background task {task_id} (subagent={subagent_type}, timeout={config.timeout_seconds}s, polling_limit={max_poll_count} polls)")
 
     writer = get_stream_writer()
-    # Send Task Started message'
+    # 发送 Task Started 消息
     writer({"type": "task_started", "task_id": task_id, "description": description})
 
     while True:
@@ -138,15 +137,15 @@ def task_tool(
             cleanup_background_task(task_id)
             return f"Error: Task {task_id} disappeared from background tasks"
 
-        # Log status changes for debugging
+        # 记录状态变化，便于调试
         if result.status != last_status:
             logger.info(f"[trace={trace_id}] Task {task_id} status: {result.status.value}")
             last_status = result.status
 
-        # Check for new AI messages and send task_running events
+        # 检查是否有新 AI 消息，并发送 task_running 事件
         current_message_count = len(result.ai_messages)
         if current_message_count > last_message_count:
-            # Send task_running event for each new message
+            # 为每条新增消息发送 task_running 事件
             for i in range(last_message_count, current_message_count):
                 message = result.ai_messages[i]
                 writer(
@@ -154,14 +153,14 @@ def task_tool(
                         "type": "task_running",
                         "task_id": task_id,
                         "message": message,
-                        "message_index": i + 1,  # 1-based index for display
+                        "message_index": i + 1,  # 面向展示的 1-based 索引
                         "total_messages": current_message_count,
                     }
                 )
                 logger.info(f"[trace={trace_id}] Task {task_id} sent message #{i + 1}/{current_message_count}")
             last_message_count = current_message_count
 
-        # Check if task completed, failed, or timed out
+        # 检查任务是否完成、失败或超时
         if result.status == SubagentStatus.COMPLETED:
             writer({"type": "task_completed", "task_id": task_id, "result": result.result})
             logger.info(f"[trace={trace_id}] Task {task_id} completed after {poll_count} polls")
@@ -178,16 +177,15 @@ def task_tool(
             cleanup_background_task(task_id)
             return f"Task timed out. Error: {result.error}"
 
-        # Still running, wait before next poll
-        time.sleep(5)  # Poll every 5 seconds
+        # 仍在运行，等待下一轮轮询
+        time.sleep(5)  # 每 5 秒轮询一次
         poll_count += 1
 
-        # Polling timeout as a safety net (in case thread pool timeout doesn't work)
-        # Set to execution timeout + 60s buffer, in 5s poll intervals
-        # This catches edge cases where the background task gets stuck
-        # Note: We don't call cleanup_background_task here because the task may
-        # still be running in the background. The cleanup will happen when the
-        # executor completes and sets a terminal status.
+        # 轮询超时作为兜底保护（防止线程池超时机制失效）
+        # 阈值为执行超时 + 60 秒缓冲，以 5 秒为轮询间隔
+        # 用于兜住后台任务卡死等边缘场景
+        # 注意：这里不调用 cleanup_background_task，因为任务可能仍在后台运行。
+        # 真正清理会在执行器结束并写入终态后完成。
         if poll_count > max_poll_count:
             timeout_minutes = config.timeout_seconds // 60
             logger.error(f"[trace={trace_id}] Task {task_id} polling timed out after {poll_count} polls (should have been caught by thread pool timeout)")

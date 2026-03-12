@@ -13,7 +13,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 DOCKER_DIR="$PROJECT_ROOT/docker"
 
 # Docker Compose command with project name
-COMPOSE_CMD="docker compose -p deer-flow-dev -f docker-compose-dev.yaml"
+COMPOSE_CMD="docker compose -p agent-flow-dev -f docker-compose-dev.yaml"
 
 detect_sandbox_mode() {
     local config_file="$PROJECT_ROOT/config.yaml"
@@ -73,7 +73,7 @@ trap cleanup INT TERM
 # Initialize: pre-pull the sandbox image so first Pod startup is fast
 init() {
     echo "=========================================="
-    echo "  AgentFlow Init — Pull Sandbox Image"
+    echo "  Agent-flow Init — Pull Sandbox Image"
     echo "=========================================="
     echo ""
 
@@ -98,16 +98,16 @@ start() {
     local services
 
     echo "=========================================="
-    echo "  Starting AgentFlow Docker Development"
+    echo "  Starting Agent-flow Docker Development"
     echo "=========================================="
     echo ""
 
     sandbox_mode="$(detect_sandbox_mode)"
 
     if [ "$sandbox_mode" = "provisioner" ]; then
-        services="frontend gateway langgraph provisioner nginx"
+        services="gateway langgraph provisioner nginx"
     else
-        services="frontend gateway langgraph nginx"
+        services="gateway langgraph nginx"
     fi
 
     echo -e "${BLUE}Detected sandbox mode: $sandbox_mode${NC}"
@@ -119,11 +119,11 @@ start() {
     echo ""
     
     # Set DEER_FLOW_ROOT for provisioner if not already set
-    if [ -z "$DEER_FLOW_ROOT" ]; then
-        export DEER_FLOW_ROOT="$PROJECT_ROOT"
-        echo -e "${BLUE}Setting DEER_FLOW_ROOT=$DEER_FLOW_ROOT${NC}"
-        echo ""
+    if [ -z "$AGENT_FLOW_ROOT" ]; then
+        export AGENT_FLOW_ROOT="$PROJECT_ROOT"
     fi
+    echo -e "${BLUE}Setting AGENT_FLOW_ROOT=$AGENT_FLOW_ROOT${NC}"
+    echo ""
     
     # Ensure config.yaml exists before starting.
     if [ ! -f "$PROJECT_ROOT/config.yaml" ]; then
@@ -133,7 +133,7 @@ start() {
             echo -e "${YELLOW}============================================================${NC}"
             echo -e "${YELLOW}  config.yaml has been created from config.example.yaml.${NC}"
             echo -e "${YELLOW}  Please edit config.yaml to set your API keys and model   ${NC}"
-            echo -e "${YELLOW}  configuration before starting AgentFlow.                  ${NC}"
+            echo -e "${YELLOW}  configuration before starting Agent-flow.                  ${NC}"
             echo -e "${YELLOW}============================================================${NC}"
             echo ""
             echo -e "${YELLOW}  Edit the file:  $PROJECT_ROOT/config.yaml${NC}"
@@ -162,7 +162,7 @@ start() {
     cd "$DOCKER_DIR" && $COMPOSE_CMD up --build -d --remove-orphans $services
     echo ""
     echo "=========================================="
-    echo "  AgentFlow Docker is starting!"
+    echo "  Agent-flow Docker is starting!"
     echo "=========================================="
     echo ""
     echo "  🌐 Application: http://0.0.0.0:2026"
@@ -180,13 +180,13 @@ logs() {
     local service=""
     
     case "$1" in
-        --frontend)
-            service="frontend"
-            echo -e "${BLUE}Viewing frontend logs...${NC}"
-            ;;
         --gateway)
             service="gateway"
             echo -e "${BLUE}Viewing gateway logs...${NC}"
+            ;;
+        --langgraph)
+            service="langgraph"
+            echo -e "${BLUE}Viewing langgraph logs...${NC}"
             ;;
         --nginx)
             service="nginx"
@@ -201,7 +201,7 @@ logs() {
             ;;
         *)
             echo -e "${YELLOW}Unknown option: $1${NC}"
-            echo "Usage: $0 logs [--frontend|--gateway|--nginx|--provisioner]"
+            echo "Usage: $0 logs [--gateway|--langgraph|--nginx|--provisioner]"
             exit 1
             ;;
     esac
@@ -213,20 +213,20 @@ logs() {
 stop() {
     # DEER_FLOW_ROOT is referenced in docker-compose-dev.yaml; set it before
     # running compose down to suppress "variable is not set" warnings.
-    if [ -z "$DEER_FLOW_ROOT" ]; then
-        export DEER_FLOW_ROOT="$PROJECT_ROOT"
+    if [ -z "$AGENT_FLOW_ROOT" ]; then
+        export AGENT_FLOW_ROOT="$PROJECT_ROOT"
     fi
     echo "Stopping Docker development services..."
     cd "$DOCKER_DIR" && $COMPOSE_CMD down
     echo "Cleaning up sandbox containers..."
-    "$SCRIPT_DIR/cleanup-containers.sh" deer-flow-sandbox 2>/dev/null || true
+    "$SCRIPT_DIR/cleanup-containers.sh" agent-flow-sandbox 2>/dev/null || true
     echo -e "${GREEN}✓ Docker services stopped${NC}"
 }
 
 # Restart Docker development environment
 restart() {
     echo "========================================"
-    echo "  Restarting AgentFlow Docker Services"
+    echo "  Restarting Agent-flow Docker Services"
     echo "========================================"
     echo ""
     echo -e "${BLUE}Restarting containers...${NC}"
@@ -242,7 +242,7 @@ restart() {
 
 # Show help
 help() {
-    echo "AgentFlow Docker Management Script"
+    echo "Agent-flow Docker Management Script"
     echo ""
     echo "Usage: $0 <command> [options]"
     echo ""
@@ -251,8 +251,8 @@ help() {
     echo "  start         - Start Docker services (auto-detects sandbox mode from config.yaml)"
     echo "  restart       - Restart all running Docker services"
     echo "  logs [option] - View Docker development logs"
-    echo "                  --frontend   View frontend logs only"
     echo "                  --gateway    View gateway logs only"
+    echo "                  --langgraph  View langgraph logs only"
     echo "                  --nginx      View nginx logs only"
     echo "                  --provisioner View provisioner logs only"
     echo "  stop          - Stop Docker development services"

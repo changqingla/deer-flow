@@ -1,4 +1,4 @@
-"""Tests for subagent timeout configuration.
+"""
 
 Covers:
 - SubagentsAppConfig / SubagentOverrideConfig model validation and defaults

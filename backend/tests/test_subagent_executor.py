@@ -1,4 +1,4 @@
-"""Tests for subagent executor async/sync execution paths.
+"""
 
 Covers:
 - SubagentExecutor.execute() synchronous execution path
@@ -33,7 +33,7 @@ _MOCKED_MODULE_NAMES = [
 
 @pytest.fixture(scope="session", autouse=True)
 def _setup_executor_classes():
-    """Set up mocked modules and import real executor classes.
+    """
 
     This fixture runs once per session and yields the executor classes.
     It handles module cleanup to avoid affecting other test files.
@@ -391,7 +391,7 @@ class TestSyncExecutionPath:
         assert result.result == "Sync result"
 
     def test_execute_in_thread_pool_context(self, classes, base_config, msg):
-        """Test that execute() works correctly when called from a thread pool.
+        """
 
         This simulates the real-world usage where execute() is called from
         _execution_pool in execute_async().
@@ -494,7 +494,7 @@ class TestAsyncToolSupport:
 
     @pytest.mark.anyio
     async def test_async_tool_called_in_astream(self, classes, base_config, msg):
-        """Test that async tools are properly awaited in astream.
+        """
 
         This verifies the fix for: async MCP tools not being executed properly
         because they were being called synchronously.
@@ -705,7 +705,7 @@ class TestCleanupBackgroundTask:
         assert task_id not in executor_module._background_tasks
 
     def test_cleanup_skips_running_task(self, executor_module, classes):
-        """Test that cleanup does NOT remove a RUNNING task.
+        """
 
         This prevents race conditions where task_tool calls cleanup
         while the background executor is still updating the task.
@@ -752,7 +752,7 @@ class TestCleanupBackgroundTask:
     def test_cleanup_removes_task_with_completed_at_even_if_running(
         self, executor_module, classes
     ):
-        """Test that cleanup removes task if completed_at is set, even if status is RUNNING.
+        """
 
         This is a safety net: if completed_at is set, the task is considered done
         regardless of status.

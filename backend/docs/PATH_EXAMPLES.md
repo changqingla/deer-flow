@@ -7,7 +7,7 @@ AgentFlow 的文件上传系统返回三种不同的路径，每种路径用于�
 ### 1. 实际文件系统路径 (path)
 
 ```
-.deer-flow/threads/{thread_id}/user-data/uploads/document.pdf
+.agent-flow/threads/{thread_id}/user-data/uploads/document.pdf
 ```
 
 **用途：**
@@ -19,7 +19,7 @@ AgentFlow 的文件上传系统返回三种不同的路径，每种路径用于�
 ```python
 # Python 代码中直接访问
 from pathlib import Path
-file_path = Path("backend/.deer-flow/threads/abc123/user-data/uploads/document.pdf")
+file_path = Path("backend/.agent-flow/threads/abc123/user-data/uploads/document.pdf")
 content = file_path.read_bytes()
 ```
 
@@ -99,11 +99,11 @@ async function uploadAndProcess(threadId: string, file: File) {
   console.log('文件信息：', fileInfo);
   // {
   //   filename: "report.pdf",
-  //   path: ".deer-flow/threads/abc123/user-data/uploads/report.pdf",
+  //   path: ".agent-flow/threads/abc123/user-data/uploads/report.pdf",
   //   virtual_path: "/mnt/user-data/uploads/report.pdf",
   //   artifact_url: "/api/threads/abc123/artifacts/mnt/user-data/uploads/report.pdf",
   //   markdown_file: "report.md",
-  //   markdown_path: ".deer-flow/threads/abc123/user-data/uploads/report.md",
+  //   markdown_path: ".agent-flow/threads/abc123/user-data/uploads/report.md",
   //   markdown_virtual_path: "/mnt/user-data/uploads/report.md",
   //   markdown_artifact_url: "/api/threads/abc123/artifacts/mnt/user-data/uploads/report.md"
   // }

@@ -67,8 +67,8 @@ AgentFlow has newly integrated the intelligent search and crawling toolset indep
 1. **Clone the AgentFlow repository**
 
    ```bash
-   git clone https://github.com/bytedance/deer-flow.git
-   cd deer-flow
+   git clone https://github.com/bytedance/Agent-flow.git Agent-flow
+   cd Agent-flow
    ```
 
 2. **Generate local configuration files**
@@ -151,12 +151,12 @@ Prerequisite: complete the "Configuration" steps above first (`make config` and 
 
 1. **Check prerequisites**:
    ```bash
-   make check  # Verifies Node.js 22+, pnpm, uv, nginx
+   make check  # Verifies uv and nginx
    ```
 
 2. **Install dependencies**:
    ```bash
-   make install  # Install backend + frontend dependencies
+   make install  # Install backend dependencies
    ```
 
 3. **(Optional) Pre-pull sandbox image**:
@@ -343,7 +343,7 @@ The `claude-to-AgentFlow` skill lets you interact with a running AgentFlow insta
 **Install the skill**:
 
 ```bash
-npx skills add https://github.com/bytedance/deer-flow --skill claude-to-AgentFlow
+npx skills add https://github.com/bytedance/Agent-flow --skill claude-to-agent-flow
 ```
 
 Then make sure AgentFlow is running (default at `http://localhost:2026`) and use the `/claude-to-AgentFlow` command in Claude Code.
@@ -358,9 +358,9 @@ Then make sure AgentFlow is running (default at `http://localhost:2026`) and use
 **Environment variables** (optional, for custom endpoints):
 
 ```bash
-AgentFlow_URL=http://localhost:2026            # Unified proxy base URL
-AgentFlow_GATEWAY_URL=http://localhost:2026    # Gateway API
-AgentFlow_LANGGRAPH_URL=http://localhost:2026/api/langgraph  # LangGraph API
+AGENT_FLOW_URL=http://localhost:2026            # Unified proxy base URL
+AGENT_FLOW_GATEWAY_URL=http://localhost:2026    # Gateway API
+AGENT_FLOW_LANGGRAPH_URL=http://localhost:2026/api/langgraph  # LangGraph API
 ```
 
 See [`skills/public/claude-to-AgentFlow/SKILL.md`](skills/public/claude-to-AgentFlow/SKILL.md) for the full API reference.

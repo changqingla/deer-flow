@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate an HTML report from run_loop.py output.
+"""
 
 Takes the JSON output from run_loop.py and generates a visual HTML report
 showing each description attempt with check/x for each test case.

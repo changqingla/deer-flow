@@ -1,16 +1,14 @@
-"""Middleware to fix dangling tool calls in message history.
+"""补齐“悬空工具调用”的中间件。
 
-A dangling tool call occurs when an AIMessage contains tool_calls but there are
-no corresponding ToolMessages in the history (e.g., due to user interruption or
-request cancellation). This causes LLM errors due to incomplete message format.
+当 AIMessage 含有 `tool_calls`，但历史中缺少对应 ToolMessage
+（例如用户中断或请求取消）时，就会出现悬空工具调用，进而因消息格式不完整
+导致 LLM 报错。
 
-This middleware intercepts the model call to detect and patch such gaps by
-inserting synthetic ToolMessages with an error indicator immediately after the
-AIMessage that made the tool calls, ensuring correct message ordering.
+本中间件会在模型调用前检测并修补此类缺口：在发起工具调用的 AIMessage 之后
+立即插入带错误标记的合成 ToolMessage，保证消息顺序与格式正确。
 
-Note: Uses wrap_model_call instead of before_model to ensure patches are inserted
-at the correct positions (immediately after each dangling AIMessage), not appended
-to the end of the message list as before_model + add_messages reducer would do.
+注意：这里使用 `wrap_model_call` 而不是 `before_model`，以确保补丁插入到
+正确位置（紧跟对应 AIMessage），而不是被追加到消息末尾。
 """
 
 import logging
@@ -26,27 +24,21 @@ logger = logging.getLogger(__name__)
 
 
 class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
-    """Inserts placeholder ToolMessages for dangling tool calls before model invocation.
-
-    Scans the message history for AIMessages whose tool_calls lack corresponding
-    ToolMessages, and injects synthetic error responses immediately after the
-    offending AIMessage so the LLM receives a well-formed conversation.
-    """
+    """扫描并修补缺失 ToolMessage 的 tool_calls。"""
 
     def _build_patched_messages(self, messages: list) -> list | None:
-        """Return a new message list with patches inserted at the correct positions.
+        """构造补丁后的消息列表。
 
-        For each AIMessage with dangling tool_calls (no corresponding ToolMessage),
-        a synthetic ToolMessage is inserted immediately after that AIMessage.
-        Returns None if no patches are needed.
+        对每条存在悬空 tool_call（无对应 ToolMessage）的 AIMessage，
+        会在其后插入一条合成 ToolMessage。若无需修补则返回 None。
         """
-        # Collect IDs of all existing ToolMessages
+        # 收集历史中所有已存在 ToolMessage 的 tool_call_id
         existing_tool_msg_ids: set[str] = set()
         for msg in messages:
             if isinstance(msg, ToolMessage):
                 existing_tool_msg_ids.add(msg.tool_call_id)
 
-        # Check if any patching is needed
+        # 先判断是否存在需要修补的缺口
         needs_patch = False
         for msg in messages:
             if getattr(msg, "type", None) != "ai":
@@ -62,7 +54,7 @@ class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
         if not needs_patch:
             return None
 
-        # Build new list with patches inserted right after each dangling AIMessage
+        # 构建新列表：在每条悬空 AIMessage 后立即插入补丁消息
         patched: list = []
         patched_ids: set[str] = set()
         patch_count = 0

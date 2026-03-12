@@ -141,7 +141,7 @@ FastAPI application providing REST endpoints for frontend integration:
 ### Installation
 
 ```bash
-cd deer-flow
+cd Agent-flow
 
 # Copy configuration files
 cp config.example.yaml config.yaml
@@ -177,7 +177,7 @@ export OPENAI_API_KEY="your-api-key-here"
 **Full Application** (from project root):
 
 ```bash
-make dev  # Starts LangGraph + Gateway + Frontend + Nginx
+make dev  # Starts LangGraph + Gateway + Nginx
 ```
 
 Access at: http://localhost:2026

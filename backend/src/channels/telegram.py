@@ -1,4 +1,4 @@
-"""Telegram channel — connects via long-polling (no public IP needed)."""
+"""电报（Telegram）通道：通过长轮询连接（无需公网 IP）。"""
 
 from __future__ import annotations
 
@@ -14,11 +14,11 @@ logger = logging.getLogger(__name__)
 
 
 class TelegramChannel(Channel):
-    """Telegram bot channel using long-polling.
+    """
+    配置项（``config.yaml`` 中 ``channels.telegram``）：
+        - ``bot_token``: Telegram Bot API token（来自 @BotFather）。
+        - ``allowed_users``: （可选）允许的 Telegram 用户 ID 列表。空列表表示允许所有人。
 
-    Configuration keys (in ``config.yaml`` under ``channels.telegram``):
-        - ``bot_token``: Telegram Bot API token (from @BotFather).
-        - ``allowed_users``: (optional) List of allowed Telegram user IDs. Empty = allow all.
     """
 
     def __init__(self, bus: MessageBus, config: dict[str, Any]) -> None:
@@ -33,7 +33,7 @@ class TelegramChannel(Channel):
                 self._allowed_users.add(int(uid))
             except (ValueError, TypeError):
                 pass
-        # chat_id -> last sent message_id for threaded replies
+        # 会话 ID（chat_id）-> 最近一次机器人消息 message_id（用于线程回复）
         self._last_bot_message: dict[str, int] = {}
 
     async def start(self) -> None:
@@ -55,10 +55,10 @@ class TelegramChannel(Channel):
         self._running = True
         self.bus.subscribe_outbound(self._on_outbound)
 
-        # Build the application
+        # 构建应用实例
         app = ApplicationBuilder().token(bot_token).build()
 
-        # Command handlers
+        # 命令处理器
         app.add_handler(CommandHandler("start", self._cmd_start))
         app.add_handler(CommandHandler("new", self._cmd_generic))
         app.add_handler(CommandHandler("status", self._cmd_generic))
@@ -66,12 +66,12 @@ class TelegramChannel(Channel):
         app.add_handler(CommandHandler("memory", self._cmd_generic))
         app.add_handler(CommandHandler("help", self._cmd_generic))
 
-        # General message handler
+        # 普通消息处理器
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._on_text))
 
         self._application = app
 
-        # Run polling in a dedicated thread with its own event loop
+        # 在独立线程中运行轮询，并使用该线程自己的事件循环
         self._thread = threading.Thread(target=self._run_polling, daemon=True)
         self._thread.start()
         logger.info("Telegram channel started")
@@ -99,7 +99,7 @@ class TelegramChannel(Channel):
 
         kwargs: dict[str, Any] = {"chat_id": chat_id, "text": msg.text}
 
-        # Reply to the last bot message in this chat for threading
+        # 回复本会话中最后一条机器人消息，以形成线程效果
         reply_to = self._last_bot_message.get(msg.chat_id)
         if reply_to:
             kwargs["reply_to_message_id"] = reply_to
@@ -114,7 +114,7 @@ class TelegramChannel(Channel):
             except Exception as exc:
                 last_exc = exc
                 if attempt < _max_retries - 1:
-                    delay = 2**attempt  # 1s, 2s
+                    delay = 2**attempt  # 1 秒、2 秒
                     logger.warning(
                         "[Telegram] send failed (attempt %d/%d), retrying in %ds: %s",
                         attempt + 1,
@@ -137,7 +137,7 @@ class TelegramChannel(Channel):
             logger.error("[Telegram] Invalid chat_id: %s", msg.chat_id)
             return False
 
-        # Telegram limits: 10MB for photos, 50MB for documents
+        # 电报平台（Telegram）限制：图片 10MB，文档 50MB
         if attachment.size > 50 * 1024 * 1024:
             logger.warning("[Telegram] file too large (%d bytes), skipping: %s", attachment.size, attachment.filename)
             return False
@@ -169,10 +169,10 @@ class TelegramChannel(Channel):
             logger.exception("[Telegram] failed to send file: %s", attachment.filename)
             return False
 
-    # -- helpers -----------------------------------------------------------
+    # -- 辅助方法 -----------------------------------------------------------
 
     async def _send_running_reply(self, chat_id: str, reply_to_message_id: int) -> None:
-        """Send a 'Working on it...' reply to the user's message."""
+        """向用户消息回复“处理中...”。"""
         if not self._application:
             return
         try:
@@ -186,16 +186,15 @@ class TelegramChannel(Channel):
         except Exception:
             logger.exception("[Telegram] failed to send running reply in chat=%s", chat_id)
 
-    # -- internal ----------------------------------------------------------
+    # -- 内部 ---------------------------------------------------------------
 
     def _run_polling(self) -> None:
-        """Run telegram polling in a dedicated thread."""
+        """在独立线程中运行 Telegram 轮询。"""
         self._tg_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._tg_loop)
         try:
-            # Cannot use run_polling() because it calls add_signal_handler(),
-            # which only works in the main thread.  Instead, manually
-            # initialize the application and start the updater.
+            # 不能使用 run_polling()，因为它会调用 add_signal_handler()，
+            # 而该调用只允许在主线程执行。这里改为手动初始化应用并启动 updater。
             self._tg_loop.run_until_complete(self._application.initialize())
             self._tg_loop.run_until_complete(self._application.start())
             self._tg_loop.run_until_complete(self._application.updater.start_polling())
@@ -204,7 +203,7 @@ class TelegramChannel(Channel):
             if self._running:
                 logger.exception("Telegram polling error")
         finally:
-            # Graceful shutdown
+            # 优雅关闭
             try:
                 if self._application.updater.running:
                     self._tg_loop.run_until_complete(self._application.updater.stop())
@@ -219,13 +218,13 @@ class TelegramChannel(Channel):
         return user_id in self._allowed_users
 
     async def _cmd_start(self, update, context) -> None:
-        """Handle /start command."""
+        """处理 /start 命令。"""
         if not self._check_user(update.effective_user.id):
             return
-        await update.message.reply_text("Welcome to AgentFlow! Send me a message to start a conversation.\nType /help for available commands.")
+        await update.message.reply_text("Welcome to Agent-flow! Send me a message to start a conversation.\nType /help for available commands.")
 
     async def _cmd_generic(self, update, context) -> None:
-        """Forward slash commands to the channel manager."""
+        """将斜杠命令转发给通道管理器。"""
         if not self._check_user(update.effective_user.id):
             return
 
@@ -247,7 +246,7 @@ class TelegramChannel(Channel):
             asyncio.run_coroutine_threadsafe(self.bus.publish_inbound(inbound), self._main_loop)
 
     async def _on_text(self, update, context) -> None:
-        """Handle regular text messages."""
+        """处理普通文本消息。"""
         if not self._check_user(update.effective_user.id):
             return
 
@@ -259,9 +258,8 @@ class TelegramChannel(Channel):
         user_id = str(update.effective_user.id)
         msg_id = str(update.message.message_id)
 
-        # topic_id: if the user is replying to a bot message, look up
-        # the original topic_id stored for that reply chain.  Otherwise
-        # the current message starts a new topic.
+        # 主题 ID（topic_id）：若用户回复了机器人消息，则复用该回复链对应的原始 topic_id；
+        # 否则当前消息开启新主题。
         reply_to = update.message.reply_to_message
         if reply_to:
             topic_id = str(reply_to.message_id)

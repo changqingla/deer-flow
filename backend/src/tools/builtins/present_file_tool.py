@@ -16,19 +16,17 @@ def _normalize_presented_filepath(
     runtime: ToolRuntime[ContextT, ThreadState],
     filepath: str,
 ) -> str:
-    """Normalize a presented file path to the `/mnt/user-data/outputs/*` contract.
-
-    Accepts either:
-    - A virtual sandbox path such as `/mnt/user-data/outputs/report.md`
-    - A host-side thread outputs path such as
+    """
+    接受以下两类路径：
+    - 沙箱虚拟路径，例如 `/mnt/user-data/outputs/report.md`
+    - 线程输出目录的宿主机路径，例如
       `/app/backend/.deer-flow/threads/<thread>/user-data/outputs/report.md`
 
-    Returns:
-        The normalized virtual path.
+    返回：
+        归一化后的虚拟路径。
 
-    Raises:
-        ValueError: If runtime metadata is missing or the path is outside the
-            current thread's outputs directory.
+    异常：
+        ValueError: 当 runtime 元数据缺失，或路径不在当前线程 outputs 目录内时抛出。
     """
     if runtime.state is None:
         raise ValueError("Thread runtime state is not available")
@@ -65,24 +63,22 @@ def present_file_tool(
     filepaths: list[str],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> Command:
-    """Make files visible to the user for viewing and rendering in the client interface.
+    """
+    `present_files` 工具适用场景：
+    - 将文件提供给用户查看、下载或交互
+    - 一次呈现多个相关文件
+    - 在文件生成完成后展示给用户
 
-    When to use the present_files tool:
+    不适用场景：
+    - 仅需读取文件内容供内部处理
+    - 临时或中间文件，不需要展示给用户
 
-    - Making any file available for the user to view, download, or interact with
-    - Presenting multiple related files at once
-    - After creating files that should be presented to the user
+    说明：
+    - 应在创建文件并移动到 `/mnt/user-data/outputs` 后调用。
+    - 本工具可与其他工具并行调用；状态更新通过 reducer 合并，避免冲突。
 
-    When NOT to use the present_files tool:
-    - When you only need to read file contents for your own processing
-    - For temporary or intermediate files not meant for user viewing
-
-    Notes:
-    - You should call this tool after creating files and moving them to the `/mnt/user-data/outputs` directory.
-    - This tool can be safely called in parallel with other tools. State updates are handled by a reducer to prevent conflicts.
-
-    Args:
-        filepaths: List of absolute file paths to present to the user. **Only** files in `/mnt/user-data/outputs` can be presented.
+    参数：
+        filepaths: 需要展示给用户的绝对路径列表。仅允许 `/mnt/user-data/outputs` 下文件。
     """
     try:
         normalized_paths = [_normalize_presented_filepath(runtime, filepath) for filepath in filepaths]
@@ -91,7 +87,7 @@ def present_file_tool(
             update={"messages": [ToolMessage(f"Error: {exc}", tool_call_id=tool_call_id)]},
         )
 
-    # The merge_artifacts reducer will handle merging and deduplication
+    # `merge_artifacts` reducer 会负责合并与去重
     return Command(
         update={
             "artifacts": normalized_paths,

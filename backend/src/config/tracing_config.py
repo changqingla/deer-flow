@@ -9,7 +9,7 @@ _config_lock = threading.Lock()
 
 
 class TracingConfig(BaseModel):
-    """Configuration for LangSmith tracing."""
+    """用于 LangSmith 的链路追踪配置。"""
 
     enabled: bool = Field(...)
     api_key: str | None = Field(...)
@@ -18,7 +18,7 @@ class TracingConfig(BaseModel):
 
     @property
     def is_configured(self) -> bool:
-        """Check if tracing is fully configured (enabled and has API key)."""
+        """检查追踪是否已完整配置（启用且包含 API Key）。"""
         return self.enabled and bool(self.api_key)
 
 
@@ -29,11 +29,11 @@ _TRUTHY_VALUES = {"1", "true", "yes", "on"}
 
 
 def _env_flag_preferred(*names: str) -> bool:
-    """Return the boolean value of the first env var that is present and non-empty.
+    """
+    按优先级读取布尔环境变量。
 
-    Accepted truthy values (case-insensitive): ``1``, ``true``, ``yes``, ``on``.
-    Any other non-empty value is treated as falsy.  If none of the named
-    variables is set, returns ``False``.
+    可识别的真值（不区分大小写）：``1``、``true``、``yes``、``on``。
+    其余非空值均视为假值。若给定变量都未设置，则返回 ``False``。
     """
     for name in names:
         value = os.environ.get(name)
@@ -43,7 +43,7 @@ def _env_flag_preferred(*names: str) -> bool:
 
 
 def _first_env_value(*names: str) -> str | None:
-    """Return the first non-empty environment value from candidate names."""
+    """从候选变量名中返回第一个非空环境变量值。"""
     for name in names:
         value = os.environ.get(name)
         if value and value.strip():
@@ -52,43 +52,42 @@ def _first_env_value(*names: str) -> str | None:
 
 
 def get_tracing_config() -> TracingConfig:
-    """Get the current tracing configuration from environment variables.
+    """
+    获取追踪配置。
 
-    ``LANGSMITH_*`` variables take precedence over their legacy ``LANGCHAIN_*``
-    counterparts.  For boolean flags (``enabled``), the *first* variable that is
-    present and non-empty in the priority list is the sole authority – its value
-    is parsed and returned without consulting the remaining candidates.  Accepted
-    truthy values are ``1``, ``true``, ``yes``, and ``on`` (case-insensitive);
-    any other non-empty value is treated as falsy.
+    ``LANGSMITH_*`` 变量优先于旧版 ``LANGCHAIN_*`` 变量。
+    对于布尔标志（``enabled``），会在优先级列表中选取第一个存在且非空的变量作为唯一依据，
+    解析后直接返回，不再继续检查后续候选项。真值包含 ``1``、``true``、``yes``、``on``
+    （不区分大小写）；其余非空值视为假值。
 
-    Priority order:
+    优先级顺序：
         enabled  : LANGSMITH_TRACING > LANGCHAIN_TRACING_V2 > LANGCHAIN_TRACING
         api_key  : LANGSMITH_API_KEY  > LANGCHAIN_API_KEY
         project  : LANGSMITH_PROJECT  > LANGCHAIN_PROJECT   (default: "deer-flow")
         endpoint : LANGSMITH_ENDPOINT > LANGCHAIN_ENDPOINT  (default: https://api.smith.langchain.com)
 
-    Returns:
-        TracingConfig with current settings.
+    返回：
+        当前设置对应的 TracingConfig。
     """
     global _tracing_config
     if _tracing_config is not None:
         return _tracing_config
     with _config_lock:
-        if _tracing_config is not None:  # Double-check after acquiring lock
+        if _tracing_config is not None:  # 加锁后再次检查
             return _tracing_config
         _tracing_config = TracingConfig(
-            # Keep compatibility with both legacy LANGCHAIN_* and newer LANGSMITH_* variables.
+            # 同时兼容旧版 LANGCHAIN_* 与新版 LANGSMITH_* 变量。
             enabled=_env_flag_preferred("LANGSMITH_TRACING", "LANGCHAIN_TRACING_V2", "LANGCHAIN_TRACING"),
             api_key=_first_env_value("LANGSMITH_API_KEY", "LANGCHAIN_API_KEY"),
-            project=_first_env_value("LANGSMITH_PROJECT", "LANGCHAIN_PROJECT") or "deer-flow",
+            project=_first_env_value("LANGSMITH_PROJECT", "LANGCHAIN_PROJECT") or "agent-flow",
             endpoint=_first_env_value("LANGSMITH_ENDPOINT", "LANGCHAIN_ENDPOINT") or "https://api.smith.langchain.com",
         )
         return _tracing_config
 
 
 def is_tracing_enabled() -> bool:
-    """Check if LangSmith tracing is enabled and configured.
-    Returns:
-        True if tracing is enabled and has an API key.
+    """
+    返回：
+        若追踪已启用且存在 API Key，则返回 True。
     """
     return get_tracing_config().is_configured

@@ -74,15 +74,15 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 Example code patterns:
 ```html
 <!-- Floating corner badge with hover effect -->
-<a href="https://AgentFlow.tech" target="_blank" class="AgentFlow-badge">✦ AgentFlow</a>
+<a href="https://AgentFlow.tech" target="_blank" class="Agent-flow-badge">✦ Agent-flow</a>
 
 <!-- Monogram with tooltip -->
-<a href="https://AgentFlow.tech" target="_blank" title="Created By AgentFlow" class="AgentFlow-mark">DF</a>
+<a href="https://AgentFlow.tech" target="_blank" title="Created By Agent-flow" class="Agent-flow-mark">DF</a>
 
 <!-- Integrated into decorative element -->
 <div class="footer-ornament">
   <span class="line"></span>
-  <a href="https://AgentFlow.tech" target="_blank">AgentFlow</a>
+  <a href="https://AgentFlow.tech" target="_blank">Agent-flow</a>
   <span class="line"></span>
 </div>
 ```

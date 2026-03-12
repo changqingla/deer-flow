@@ -17,11 +17,11 @@ def setup_agent(
     description: str,
     runtime: ToolRuntime,
 ) -> Command:
-    """Setup the custom AgentFlow agent.
+    """
+    参数：
+        soul: 定义 Agent 个性与行为的完整 SOUL.md 内容。
+        description: Agent 功能的一行描述。
 
-    Args:
-        soul: Full SOUL.md content defining the agent's personality and behavior.
-        description: One-line description of what the agent does.
     """
 
     agent_name: str | None = runtime.context.get("agent_name")
@@ -32,7 +32,7 @@ def setup_agent(
         agent_dir.mkdir(parents=True, exist_ok=True)
 
         if agent_name:
-            # If agent_name is provided, we are creating a custom agent in the agents/ directory
+            # 传入 agent_name 时，在 agents/ 目录创建自定义 Agent
             config_data: dict = {"name": agent_name}
             if description:
                 config_data["description"] = description
@@ -56,7 +56,7 @@ def setup_agent(
         import shutil
 
         if agent_name and agent_dir.exists():
-            # Cleanup the custom agent directory only if it was created but an error occurred during setup
+            # 仅在“目录已创建但初始化失败”时清理该自定义 Agent 目录
             shutil.rmtree(agent_dir)
         logger.error(f"[agent_creator] Failed to create agent '{agent_name}': {e}", exc_info=True)
         return Command(update={"messages": [ToolMessage(content=f"Error: {e}", tool_call_id=runtime.tool_call_id)]})

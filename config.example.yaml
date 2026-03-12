@@ -1,19 +1,19 @@
-# Configuration for the AgentFlow application
+# AgentFlow 应用配置
 #
-# Guidelines:
-# - Copy this file to `config.yaml` and customize it for your environment
-# - The default path of this configuration file is `config.yaml` in the current working directory.
-#   However you can change it using the `DEER_FLOW_CONFIG_PATH` environment variable.
-# - Environment variables are available for all field values. Example: `api_key: $OPENAI_API_KEY`
-# - The `use` path is a string that looks like "package_name.sub_package_name.module_name:class_name/variable_name".
+# 使用指南：
+# - 将此文件复制为 `config.yaml`，并按你的环境进行定制
+# - 该配置文件默认路径为当前工作目录下的 `config.yaml`。
+#   也可以通过 `DEER_FLOW_CONFIG_PATH` 环境变量指定其他路径。
+# - 所有字段值都支持环境变量。示例：`api_key: $OPENAI_API_KEY`
+# - `use` 路径是一个字符串，格式类似："package_name.sub_package_name.module_name:class_name/variable_name"。
 
 # ============================================================================
-# Models Configuration
+# 模型配置
 # ============================================================================
-# Configure available LLM models for the agent to use
+# 配置 Agent 可用的 LLM 模型
 
 models:
-  # Example: Volcengine (Doubao) model
+  # 示例：Volcengine（Doubao）模型
   # - name: doubao-seed-1.8
   #   display_name: Doubao-Seed-1.8
   #   use: src.models.patched_deepseek:PatchedChatDeepSeek
@@ -28,29 +28,29 @@ models:
   #       thinking:
   #         type: enabled
 
-  # Example: OpenAI model
+  # 示例：OpenAI 模型
   # - name: gpt-4
   #   display_name: GPT-4
   #   use: langchain_openai:ChatOpenAI
   #   model: gpt-4
-  #   api_key: $OPENAI_API_KEY # Use environment variable
+  #   api_key: $OPENAI_API_KEY # 使用环境变量
   #   max_tokens: 4096
   #   temperature: 0.7
-  #   supports_vision: true # Enable vision support for view_image tool
+  #   supports_vision: true # 为 view_image 工具启用视觉能力
 
-  # Example: Anthropic Claude model
+  # 示例：Anthropic Claude 模型
   # - name: claude-3-5-sonnet
   #   display_name: Claude 3.5 Sonnet
   #   use: langchain_anthropic:ChatAnthropic
   #   model: claude-3-5-sonnet-20241022
   #   api_key: $ANTHROPIC_API_KEY
   #   max_tokens: 8192
-  #   supports_vision: true  # Enable vision support for view_image tool
+  #   supports_vision: true  # 为 view_image 工具启用视觉能力
   #   when_thinking_enabled:
   #     thinking:
   #       type: enabled
 
-  # Example: Google Gemini model
+  # 示例：Google Gemini 模型
   # - name: gemini-2.5-pro
   #   display_name: Gemini 2.5 Pro
   #   use: langchain_google_genai:ChatGoogleGenerativeAI
@@ -59,7 +59,7 @@ models:
   #   max_tokens: 8192
   #   supports_vision: true
 
-  # Example: DeepSeek model (with thinking support)
+  # 示例：DeepSeek 模型（支持思考）
   # - name: deepseek-v3
   #   display_name: DeepSeek V3 (Thinking)
   #   use: src.models.patched_deepseek:PatchedChatDeepSeek
@@ -67,13 +67,13 @@ models:
   #   api_key: $DEEPSEEK_API_KEY
   #   max_tokens: 16384
   #   supports_thinking: true
-  #   supports_vision: false  # DeepSeek V3 does not support vision
+  #   supports_vision: false  # DeepSeek V3 不支持视觉
   #   when_thinking_enabled:
   #     extra_body:
   #       thinking:
   #         type: enabled
 
-  # Example: Kimi K2.5 model
+  # 示例：Kimi K2.5 模型
   # - name: kimi-k2.5
   #   display_name: Kimi K2.5
   #   use: src.models.patched_deepseek:PatchedChatDeepSeek
@@ -82,15 +82,15 @@ models:
   #   api_key: $MOONSHOT_API_KEY
   #   max_tokens: 32768
   #   supports_thinking: true
-  #   supports_vision: true  # Check your specific model's capabilities
+  #   supports_vision: true  # 请以具体模型能力为准
   #   when_thinking_enabled:
   #     extra_body:
   #       thinking:
   #         type: enabled
 
-  # Example: Novita AI (OpenAI-compatible)
-  # Novita provides an OpenAI-compatible API with competitive pricing
-  # See: https://novita.ai
+  # 示例：Novita AI（兼容 OpenAI）
+  # Novita 提供兼容 OpenAI 的 API，且定价具有竞争力
+  # 参考：https://novita.ai
   # - name: novita-deepseek-v3.2
   #   display_name: Novita DeepSeek V3.2
   #   use: langchain_openai:ChatOpenAI
@@ -107,9 +107,9 @@ models:
   #         type: enabled
 
 # ============================================================================
-# Tool Groups Configuration
+# 工具组配置
 # ============================================================================
-# Define groups of tools for organization and access control
+# 定义工具分组，用于组织与访问控制
 
 tool_groups:
   - name: web
@@ -118,50 +118,50 @@ tool_groups:
   - name: bash
 
 # ============================================================================
-# Tools Configuration
+# 工具配置
 # ============================================================================
-# Configure available tools for the agent to use
+# 配置 Agent 可用的工具
 
 tools:
-  # Web search tool (requires Tavily API key)
+  # Web 搜索工具（需要 Tavily API Key）
   - name: web_search
     group: web
     use: src.community.tavily.tools:web_search_tool
     max_results: 5
-    # api_key: $TAVILY_API_KEY  # Set if needed
+    # api_key: $TAVILY_API_KEY  # 按需设置
 
-  # Web search tool (requires InfoQuest API key)
+  # Web 搜索工具（需要 InfoQuest API Key）
   # - name: web_search
   #   group: web
   #   use: src.community.infoquest.tools:web_search_tool
-  #   # Used to limit the scope of search results, only returns content within the specified time range. Set to -1 to disable time filtering
+  #   # 用于限制搜索结果范围，只返回指定时间区间内的内容。设为 -1 可关闭时间过滤
   #   search_time_range: 10
 
-  # Web fetch tool (uses Jina AI reader)
+  # Web 抓取工具（使用 Jina AI reader）
   - name: web_fetch
     group: web
     use: src.community.jina_ai.tools:web_fetch_tool
     timeout: 10
 
-  # Web fetch tool (uses InfoQuest AI reader)
+  # Web 抓取工具（使用 InfoQuest AI reader）
   # - name: web_fetch
   #   group: web
   #   use: src.community.infoquest.tools:web_fetch_tool
-  #   # Overall timeout for the entire crawling process (in seconds). Set to positive value to enable, -1 to disable
+  #   # 整体抓取流程超时时间（秒）。设为正数启用，设为 -1 禁用
   #   timeout: 10
-  #   # Waiting time after page loading (in seconds). Set to positive value to enable, -1 to disable
+  #   # 页面加载后等待时间（秒）。设为正数启用，设为 -1 禁用
   #   fetch_time: 10
-  #   # Timeout for navigating to the page (in seconds). Set to positive value to enable, -1 to disable
+  #   # 页面导航超时时间（秒）。设为正数启用，设为 -1 禁用
   #   navigation_timeout: 30
 
-  # Image search tool (uses DuckDuckGo)
-  # Use this to find reference images before image generation
+  # 图片搜索工具（使用 DuckDuckGo）
+  # 可在图片生成前先检索参考图
   - name: image_search
     group: web
     use: src.community.image_search.tools:image_search_tool
     max_results: 5
 
-  # File operations tools
+  # 文件操作工具
   - name: ls
     group: file:read
     use: src.sandbox.tools:ls_tool
@@ -178,221 +178,221 @@ tools:
     group: file:write
     use: src.sandbox.tools:str_replace_tool
 
-  # Bash execution tool
+  # Bash 执行工具
   - name: bash
     group: bash
     use: src.sandbox.tools:bash_tool
 
 # ============================================================================
-# Sandbox Configuration
+# 沙箱配置
 # ============================================================================
-# Choose between local sandbox (direct execution) or Docker-based AIO sandbox
+# 在本地沙箱（直接执行）与基于 Docker 的 AIO 沙箱之间选择
 
-# Option 1: Local Sandbox (Default)
-# Executes commands directly on the host machine
+# 选项 1：本地沙箱（默认）
+# 直接在宿主机上执行命令
 sandbox:
   use: src.sandbox.local:LocalSandboxProvider
 
-# Option 2: Container-based AIO Sandbox
-# Executes commands in isolated containers (Docker or Apple Container)
-# On macOS: Automatically prefers Apple Container if available, falls back to Docker
-# On other platforms: Uses Docker
-# Uncomment to use:
+# 选项 2：容器化 AIO 沙箱
+# 在隔离容器中执行命令（Docker 或 Apple Container）
+# 在 macOS 上：若可用，优先使用 Apple Container，否则回退到 Docker
+# 在其他平台上：使用 Docker
+# 取消注释后启用：
 # sandbox:
 #   use: src.community.aio_sandbox:AioSandboxProvider
 #
-#   # Optional: Container image to use (works with both Docker and Apple Container)
-#   # Default: enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest
-#   # Recommended: enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest (works on both x86_64 and arm64)
+#   # 可选：要使用的容器镜像（Docker 与 Apple Container 通用）
+#   # 默认：enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest
+#   # 推荐：enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest（同时支持 x86_64 与 arm64）
 #   # image: enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest
 #
-#   # Optional: Base port for sandbox containers (default: 8080)
+#   # 可选：沙箱容器基准端口（默认：8080）
 #   # port: 8080
 
-#   # Optional: Maximum number of concurrent sandbox containers (default: 3)
-#   # When the limit is reached the least-recently-used sandbox is evicted to
-#   # make room for new ones. Use a positive integer here; omit this field to use the default.
+#   # 可选：并发沙箱容器最大数量（默认：3）
+#   # 达到上限后，会驱逐最近最少使用的沙箱以腾出空间。
+#   # 请填写正整数；不填则使用默认值。
 #   # replicas: 3
 #
-#   # Optional: Prefix for container names (default: deer-flow-sandbox)
+#   # 可选：容器名称前缀（默认：deer-flow-sandbox）
 #   # container_prefix: deer-flow-sandbox
 #
-#   # Optional: Additional mount directories from host to container
-#   # NOTE: Skills directory is automatically mounted from skills.path to skills.container_path
+#   # 可选：从宿主机挂载到容器的额外目录
+#   # 注意：技能目录会自动从 skills.path 挂载到 skills.container_path
 #   # mounts:
-#   #   # Other custom mounts
+#   #   # 其他自定义挂载
 #   #   - host_path: /path/on/host
 #   #     container_path: /home/user/shared
 #   #     read_only: false
 #
-#   # Optional: Environment variables to inject into the sandbox container
-#   # Values starting with $ will be resolved from host environment variables
+#   # 可选：注入到沙箱容器中的环境变量
+#   # 以 $ 开头的值会从宿主机环境变量解析
 #   # environment:
 #   #   NODE_ENV: production
 #   #   DEBUG: "false"
-#   #   API_KEY: $MY_API_KEY        # Reads from host's MY_API_KEY env var
-#   #   DATABASE_URL: $DATABASE_URL  # Reads from host's DATABASE_URL env var
+#   #   API_KEY: $MY_API_KEY        # 读取宿主机的 MY_API_KEY 环境变量
+#   #   DATABASE_URL: $DATABASE_URL  # 读取宿主机的 DATABASE_URL 环境变量
 
-# Option 3: Provisioner-managed AIO Sandbox (docker-compose-dev)
-# Each sandbox_id gets a dedicated Pod in k3s, managed by the provisioner.
-# Recommended for production or advanced users who want better isolation and scalability.:
+# 选项 3：由 Provisioner 管理的 AIO 沙箱（docker-compose-dev）
+# 每个 sandbox_id 都会在 k3s 中获得一个由 provisioner 管理的独立 Pod。
+# 适合追求更高隔离性和可扩展性的生产或高级场景：
 # sandbox:
 #   use: src.community.aio_sandbox:AioSandboxProvider
 #   provisioner_url: http://provisioner:8002
 
 # ============================================================================
-# Subagents Configuration
+# 子 Agent 配置
 # ============================================================================
-# Configure timeouts for subagent execution
-# Subagents are background workers delegated tasks by the lead agent
+# 配置子 Agent 执行超时
+# 子 Agent 是由主 Agent 委派任务的后台工作单元
 
 # subagents:
-#   # Default timeout in seconds for all subagents (default: 900 = 15 minutes)
+#   # 所有子 Agent 的默认超时时间（秒）（默认：900 = 15 分钟）
 #   timeout_seconds: 900
 #
-#   # Optional per-agent timeout overrides
+#   # 可选：按 Agent 覆盖超时
 #   agents:
 #     general-purpose:
-#       timeout_seconds: 1800  # 30 minutes for complex multi-step tasks
+#       timeout_seconds: 1800  # 复杂多步骤任务可设为 30 分钟
 #     bash:
-#       timeout_seconds: 300   # 5 minutes for quick command execution
+#       timeout_seconds: 300   # 快速命令执行可设为 5 分钟
 
 # ============================================================================
-# Skills Configuration
+# 技能配置
 # ============================================================================
-# Configure skills directory for specialized agent workflows
+# 为专用 Agent 工作流配置技能目录
 
 skills:
-  # Path to skills directory on the host (relative to project root or absolute)
-  # Default: ../skills (relative to backend directory)
-  # Uncomment to customize:
+  # 宿主机上的技能目录路径（可填相对项目根目录或绝对路径）
+  # 默认：../skills（相对于 backend 目录）
+  # 取消注释后可自定义：
   # path: /absolute/path/to/custom/skills
 
-  # Path where skills are mounted in the sandbox container
-  # This is used by the agent to access skills in both local and Docker sandbox
-  # Default: /mnt/skills
+  # 技能在沙箱容器内的挂载路径
+  # Agent 会通过该路径在本地沙箱和 Docker 沙箱中访问技能
+  # 默认：/mnt/skills
   container_path: /mnt/skills
 
 # ============================================================================
-# Title Generation Configuration
+# 标题生成配置
 # ============================================================================
-# Automatic conversation title generation settings
+# 自动生成会话标题相关设置
 
 title:
   enabled: true
   max_words: 6
   max_chars: 60
-  model_name: null # Use default model (first model in models list)
+  model_name: null # 使用默认模型（models 列表中的第一个）
 
 # ============================================================================
-# Summarization Configuration
+# 摘要配置
 # ============================================================================
-# Automatically summarize conversation history when token limits are approached
-# This helps maintain context in long conversations without exceeding model limits
+# 当接近 token 上限时自动摘要历史对话
+# 这样可以在长对话中保持上下文，同时避免超出模型限制
 
 summarization:
   enabled: true
 
-  # Model to use for summarization (null = use default model)
-  # Recommended: Use a lightweight, cost-effective model like "gpt-4o-mini" or similar
+  # 用于摘要的模型（null = 使用默认模型）
+  # 推荐：使用轻量且成本较低的模型，如 "gpt-4o-mini" 或类似模型
   model_name: null
 
-  # Trigger conditions - at least one required
-  # Summarization runs when ANY threshold is met (OR logic)
-  # You can specify a single trigger or a list of triggers
+  # 触发条件：至少需要一个
+  # 满足任一阈值即触发摘要（OR 逻辑）
+  # 既可配置单个触发器，也可配置触发器列表
   trigger:
-    # Trigger when token count reaches 15564
+    # token 数达到 15564 时触发
     - type: tokens
       value: 15564
-    # Uncomment to also trigger when message count reaches 50
+    # 取消注释后，当消息数达到 50 也会触发
     # - type: messages
     #   value: 50
-    # Uncomment to trigger when 80% of model's max input tokens is reached
+    # 取消注释后，当达到模型最大输入 token 的 80% 时触发
     # - type: fraction
     #   value: 0.8
 
-  # Context retention policy after summarization
-  # Specifies how much recent history to preserve
+  # 摘要后的上下文保留策略
+  # 指定要保留多少近期历史
   keep:
-    # Keep the most recent 10 messages (recommended)
+    # 保留最近 10 条消息（推荐）
     type: messages
     value: 10
-    # Alternative: Keep specific token count
+    # 备选：按 token 数保留
     # type: tokens
     # value: 3000
-    # Alternative: Keep percentage of model's max input tokens
+    # 备选：按模型最大输入 token 的比例保留
     # type: fraction
     # value: 0.3
 
-  # Maximum tokens to keep when preparing messages for summarization
-  # Set to null to skip trimming (not recommended for very long conversations)
+  # 准备摘要输入时允许保留的最大 token 数
+  # 设为 null 表示不裁剪（不建议用于超长对话）
   trim_tokens_to_summarize: 15564
 
-  # Custom summary prompt template (null = use default LangChain prompt)
-  # The prompt should guide the model to extract important context
+  # 自定义摘要提示模板（null = 使用默认 LangChain 提示）
+  # 提示词应引导模型提取关键信息上下文
   summary_prompt: null
 
 # ============================================================================
-# Memory Configuration
+# 记忆配置
 # ============================================================================
-# Global memory mechanism
-# Stores user context and conversation history for personalized responses
+# 全局记忆机制
+# 为个性化回复存储用户上下文和对话历史
 memory:
   enabled: true
-  storage_path: memory.json # Path relative to backend directory
-  debounce_seconds: 30 # Wait time before processing queued updates
-  model_name: null # Use default model
-  max_facts: 100 # Maximum number of facts to store
-  fact_confidence_threshold: 0.7 # Minimum confidence for storing facts
-  injection_enabled: true # Whether to inject memory into system prompt
-  max_injection_tokens: 2000 # Maximum tokens for memory injection
+  storage_path: memory.json # 相对于 backend 目录的路径
+  debounce_seconds: 30 # 处理排队更新前的等待时间
+  model_name: null # 使用默认模型
+  max_facts: 100 # 最多存储的事实条数
+  fact_confidence_threshold: 0.7 # 事实存储的最低置信度
+  injection_enabled: true # 是否将记忆注入系统提示词
+  max_injection_tokens: 2000 # 记忆注入的最大 token 数
 
 # ============================================================================
-# Checkpointer Configuration
+# Checkpointer 配置
 # ============================================================================
-# Configure state persistence for the embedded AgentFlowClient.
-# The LangGraph Server manages its own state persistence separately
-# via the server infrastructure (this setting does not affect it).
+# 为嵌入式 AgentFlowClient 配置状态持久化。
+# LangGraph Server 会通过其自身服务基础设施单独管理状态持久化
+# （该配置不会影响 LangGraph Server）。
 #
-# When configured, AgentFlowClient will automatically use this checkpointer,
-# enabling multi-turn conversations to persist across process restarts.
+# 配置后，AgentFlowClient 会自动使用该 checkpointer，
+# 使多轮对话在进程重启后仍可保持。
 #
-# Supported types:
-#   memory   - In-process only. State is lost when the process exits. (default)
-#   sqlite   - File-based SQLite persistence. Survives restarts.
-#              Requires: uv add langgraph-checkpoint-sqlite
-#   postgres - PostgreSQL persistence. Suitable for multi-process deployments.
-#              Requires: uv add langgraph-checkpoint-postgres psycopg[binary] psycopg-pool
+# 支持类型：
+#   memory   - 仅进程内存。进程退出后状态丢失。（默认）
+#   sqlite   - 基于文件的 SQLite 持久化。重启后仍可保留。
+#              依赖：uv add langgraph-checkpoint-sqlite
+#   postgres - PostgreSQL 持久化，适用于多进程部署。
+#              依赖：uv add langgraph-checkpoint-postgres psycopg[binary] psycopg-pool
 #
-# Examples:
+# 示例：
 #
-# In-memory (default when omitted — no persistence):
+# 内存模式（省略时默认，无持久化）：
 # checkpointer:
 #   type: memory
 #
-# SQLite (file-based, single-process):
+# SQLite（文件模式，单进程）：
 checkpointer:
   type: sqlite
   connection_string: checkpoints.db
 #
-# PostgreSQL (multi-process, production):
+# PostgreSQL（多进程，生产环境）：
 # checkpointer:
 #   type: postgres
 #   connection_string: postgresql://user:password@localhost:5432/AgentFlow
 
 # ============================================================================
-# IM Channels Configuration
+# IM 通道配置
 # ============================================================================
-# Connect AgentFlow to external messaging platforms.
-# All channels use outbound connections (WebSocket or polling) — no public IP required.
+# 将 AgentFlow 连接到外部消息平台。
+# 所有通道都使用出站连接（WebSocket 或轮询），无需公网 IP。
 
 # channels:
-#   # LangGraph Server URL for thread/message management (default: http://localhost:2024)
+#   # LangGraph Server URL，用于线程/消息管理（默认：http://localhost:2024）
 #   langgraph_url: http://localhost:2024
-#   # Gateway API URL for auxiliary queries like /models, /memory (default: http://localhost:8001)
+#   # Gateway API URL，用于 /models、/memory 等辅助查询（默认：http://localhost:8001）
 #   gateway_url: http://localhost:8001
 #
-#   # Optional: default mobile/session settings for all IM channels
+#   # 可选：所有 IM 通道的默认会话设置
 #   session:
 #     assistant_id: lead_agent
 #     config:
@@ -411,20 +411,20 @@ checkpointer:
 #     enabled: false
 #     bot_token: $SLACK_BOT_TOKEN     # xoxb-...
 #     app_token: $SLACK_APP_TOKEN     # xapp-... (Socket Mode)
-#     allowed_users: []               # empty = allow all
+#     allowed_users: []               # 空列表表示允许所有用户
 #
 #   telegram:
 #     enabled: false
 #     bot_token: $TELEGRAM_BOT_TOKEN
-#     allowed_users: []               # empty = allow all
+#     allowed_users: []               # 空列表表示允许所有用户
 #
-#     # Optional: channel-level session overrides
+#     # 可选：按通道覆盖会话设置
 #     session:
 #       assistant_id: mobile_agent
 #       context:
 #         thinking_enabled: false
 #
-#       # Optional: per-user overrides by user_id
+#       # 可选：按 user_id 覆盖单个用户配置
 #       users:
 #         "123456789":
 #           assistant_id: vip_agent

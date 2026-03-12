@@ -8,43 +8,42 @@ set -e
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
+CONFIG_ENV_PATH="${AGENT_FLOW_CONFIG_PATH:-}"
 
-# ── Stop existing services ────────────────────────────────────────────────────
+
 
 echo "Stopping existing services if any..."
 pkill -f "langgraph dev" 2>/dev/null || true
 pkill -f "uvicorn src.gateway.app:app" 2>/dev/null || true
-pkill -f "next dev" 2>/dev/null || true
 nginx -c "$REPO_ROOT/docker/nginx/nginx.local.conf" -p "$REPO_ROOT" -s quit 2>/dev/null || true
 sleep 1
 pkill -9 nginx 2>/dev/null || true
 killall -9 nginx 2>/dev/null || true
-./scripts/cleanup-containers.sh deer-flow-sandbox 2>/dev/null || true
+./scripts/cleanup-containers.sh agent-flow-sandbox 2>/dev/null || true
 sleep 1
 
 # ── Banner ────────────────────────────────────────────────────────────────────
 
 echo ""
 echo "=========================================="
-echo "  Starting AgentFlow Development Server"
+echo "  Starting Agent-flow Development Server"
 echo "=========================================="
 echo ""
 echo "Services starting up..."
 echo "  → Backend: LangGraph + Gateway"
-echo "  → Frontend: Next.js"
 echo "  → Nginx: Reverse Proxy"
 echo ""
 
-# ── Config check ─────────────────────────────────────────────────────────────
+
 
 if ! { \
-        [ -n "$DEER_FLOW_CONFIG_PATH" ] && [ -f "$DEER_FLOW_CONFIG_PATH" ] || \
+        [ -n "$CONFIG_ENV_PATH" ] && [ -f "$CONFIG_ENV_PATH" ] || \
         [ -f backend/config.yaml ] || \
         [ -f config.yaml ]; \
     }; then
-    echo "✗ No AgentFlow config file found."
+    echo "✗ No Agent-flow config file found."
     echo "  Checked these locations:"
-    echo "    - $DEER_FLOW_CONFIG_PATH (when DEER_FLOW_CONFIG_PATH is set)"
+    echo "    - $CONFIG_ENV_PATH (when AGENT_FLOW_CONFIG_PATH is set)"
     echo "    - backend/config.yaml"
     echo "    - ./config.yaml"
     echo ""
@@ -52,7 +51,7 @@ if ! { \
     exit 1
 fi
 
-# ── Cleanup trap ─────────────────────────────────────────────────────────────
+
 
 cleanup() {
     trap - INT TERM
@@ -60,9 +59,8 @@ cleanup() {
     echo "Shutting down services..."
     pkill -f "langgraph dev" 2>/dev/null || true
     pkill -f "uvicorn src.gateway.app:app" 2>/dev/null || true
+    pkill -f "uvicorn src.gateway.app:app" 2>/dev/null || true
     pkill -f "next dev" 2>/dev/null || true
-    # Kill nginx using the captured PID first (most reliable),
-    # then fall back to pkill/killall for any stray nginx workers.
     if [ -n "${NGINX_PID:-}" ] && kill -0 "$NGINX_PID" 2>/dev/null; then
         kill -TERM "$NGINX_PID" 2>/dev/null || true
         sleep 1
@@ -71,13 +69,13 @@ cleanup() {
     pkill -9 nginx 2>/dev/null || true
     killall -9 nginx 2>/dev/null || true
     echo "Cleaning up sandbox containers..."
-    ./scripts/cleanup-containers.sh deer-flow-sandbox 2>/dev/null || true
+    ./scripts/cleanup-containers.sh agent-flow-sandbox 2>/dev/null || true
     echo "✓ All services stopped"
     exit 0
 }
 trap cleanup INT TERM
 
-# ── Start services ────────────────────────────────────────────────────────────
+trap cleanup INT TERM
 
 mkdir -p logs
 
@@ -102,15 +100,6 @@ echo "Starting Gateway API..."
 }
 echo "✓ Gateway API started on localhost:8001"
 
-echo "Starting Frontend..."
-(cd frontend && pnpm run dev > ../logs/frontend.log 2>&1) &
-./scripts/wait-for-port.sh 3000 120 "Frontend" || {
-    echo "  See logs/frontend.log for details"
-    tail -20 logs/frontend.log
-    cleanup
-}
-echo "✓ Frontend started on localhost:3000"
-
 echo "Starting Nginx reverse proxy..."
 nginx -g 'daemon off;' -c "$REPO_ROOT/docker/nginx/nginx.local.conf" -p "$REPO_ROOT" > logs/nginx.log 2>&1 &
 NGINX_PID=$!
@@ -121,21 +110,20 @@ NGINX_PID=$!
 }
 echo "✓ Nginx started on localhost:2026"
 
-# ── Ready ─────────────────────────────────────────────────────────────────────
+
 
 echo ""
 echo "=========================================="
-echo "  AgentFlow is ready!"
+echo "  Agent-flow is ready!"
 echo "=========================================="
 echo ""
-echo "  🌐 Application: http://localhost:2026"
+echo "  🌐 Gateway Docs: http://localhost:2026/docs"
 echo "  📡 API Gateway: http://localhost:2026/api/*"
 echo "  🤖 LangGraph:   http://localhost:2026/api/langgraph/*"
 echo ""
 echo "  📋 Logs:"
 echo "     - LangGraph: logs/langgraph.log"
 echo "     - Gateway:   logs/gateway.log"
-echo "     - Frontend:  logs/frontend.log"
 echo "     - Nginx:     logs/nginx.log"
 echo ""
 echo "Press Ctrl+C to stop all services"

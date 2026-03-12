@@ -15,7 +15,7 @@ BUILTIN_TOOLS = [
 
 SUBAGENT_TOOLS = [
     task_tool,
-    # task_status_tool is no longer exposed to LLM (backend handles polling internally)
+    # `task_status_tool` 不再暴露给 LLM（轮询逻辑由后端内部处理）
 ]
 
 
@@ -25,28 +25,26 @@ def get_available_tools(
     model_name: str | None = None,
     subagent_enabled: bool = False,
 ) -> list[BaseTool]:
-    """Get all available tools from config.
+    """
+    注意：MCP 工具应在应用启动时通过 `src.mcp` 模块中的
+    `initialize_mcp_tools()` 进行初始化。
 
-    Note: MCP tools should be initialized at application startup using
-    `initialize_mcp_tools()` from src.mcp module.
+    参数：
+        groups: 可选工具组过滤列表。
+        include_mcp: 是否包含 MCP 服务器工具（默认：True）。
+        model_name: 可选模型名，用于判断是否加入视觉工具。
+        subagent_enabled: 是否包含子代理工具（task、task_status）。
 
-    Args:
-        groups: Optional list of tool groups to filter by.
-        include_mcp: Whether to include tools from MCP servers (default: True).
-        model_name: Optional model name to determine if vision tools should be included.
-        subagent_enabled: Whether to include subagent tools (task, task_status).
-
-    Returns:
-        List of available tools.
+    返回：
+        可用工具列表。
     """
     config = get_app_config()
     loaded_tools = [resolve_variable(tool.use, BaseTool) for tool in config.tools if groups is None or tool.group in groups]
 
-    # Get cached MCP tools if enabled
-    # NOTE: We use ExtensionsConfig.from_file() instead of config.extensions
-    # to always read the latest configuration from disk. This ensures that changes
-    # made through the Gateway API (which runs in a separate process) are immediately
-    # reflected when loading MCP tools.
+    # 若启用，则获取缓存的 MCP 工具
+    # 注意：此处使用 ExtensionsConfig.from_file() 而非 config.extensions，
+    # 以确保始终从磁盘读取最新配置。这样 Gateway API（独立进程）写入的配置变更
+    # 能在加载 MCP 工具时立即生效。
     mcp_tools = []
     if include_mcp:
         try:
@@ -63,19 +61,19 @@ def get_available_tools(
         except Exception as e:
             logger.error(f"Failed to get cached MCP tools: {e}")
 
-    # Conditionally add tools based on config
+    # 按配置条件添加工具
     builtin_tools = BUILTIN_TOOLS.copy()
 
-    # Add subagent tools only if enabled via runtime parameter
+    # 仅在运行时参数启用时添加子代理工具
     if subagent_enabled:
         builtin_tools.extend(SUBAGENT_TOOLS)
         logger.info("Including subagent tools (task)")
 
-    # If no model_name specified, use the first model (default)
+    # 若未指定 model_name，则使用第一个模型（默认）
     if model_name is None and config.models:
         model_name = config.models[0].name
 
-    # Add view_image_tool only if the model supports vision
+    # 仅当模型支持视觉时添加 view_image_tool
     model_config = config.get_model_config(model_name) if model_name else None
     if model_config is not None and model_config.supports_vision:
         builtin_tools.append(view_image_tool)

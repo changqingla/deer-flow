@@ -1,16 +1,16 @@
-"""AgentFlowClient — Embedded Python client for AgentFlow agent system.
+"""用于 AgentFlow 的嵌入式 Python 客户端（AgentFlowClient）。
 
-Provides direct programmatic access to AgentFlow's agent capabilities
-without requiring LangGraph Server or Gateway API processes.
+无需依赖 LangGraph Server 或 Gateway API 进程，
+即可通过代码直接调用 AgentFlow 的代理能力。
 
-Usage:
+用法示例：
     from src.client import AgentFlowClient
 
     client = AgentFlowClient()
-    response = client.chat("Analyze this paper for me", thread_id="my-thread")
+    response = client.chat("帮我分析这篇论文", thread_id="my-thread")
     print(response)
 
-    # Streaming
+    # 流式输出
     for event in client.stream("hello"):
         print(event)
 """
@@ -46,16 +46,16 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class StreamEvent:
-    """A single event from the streaming agent response.
+    """流式代理响应中的单个事件。
 
-    Event types align with the LangGraph SSE protocol:
-        - ``"values"``: Full state snapshot (title, messages, artifacts).
-        - ``"messages-tuple"``: Per-message update (AI text, tool calls, tool results).
-        - ``"end"``: Stream finished.
+    事件类型与 LangGraph SSE 协议保持一致：
+        - ``"values"``：完整状态快照（title、messages、artifacts）
+        - ``"messages-tuple"``：单条消息更新（AI 文本、工具调用、工具结果）
+        - ``"end"``：流结束
 
-    Attributes:
-        type: Event type.
-        data: Event payload. Contents vary by type.
+    属性：
+        type: 事件类型。
+        data: 事件载荷，不同类型结构不同。
     """
 
     type: str
@@ -63,35 +63,34 @@ class StreamEvent:
 
 
 class AgentFlowClient:
-    """Embedded Python client for AgentFlow agent system.
+    """用于 AgentFlow 代理系统的嵌入式 Python 客户端封装类。
 
-    Provides direct programmatic access to AgentFlow's agent capabilities
-    without requiring LangGraph Server or Gateway API processes.
+    通过编程方式直接访问 AgentFlow 代理能力，
+    无需额外启动 LangGraph Server 或 Gateway API 进程。
 
-    Note:
-        Multi-turn conversations require a ``checkpointer``. Without one,
-        each ``stream()`` / ``chat()`` call is stateless — ``thread_id``
-        is only used for file isolation (uploads / artifacts).
+    注意：
+        多轮会话依赖 ``checkpointer``。若未配置，
+        每次 ``stream()`` / ``chat()`` 都是无状态调用，
+        ``thread_id`` 仅用于文件隔离（uploads / artifacts）。
 
-        The system prompt (including date, memory, and skills context) is
-        generated when the internal agent is first created and cached until
-        the configuration key changes. Call :meth:`reset_agent` to force
-        a refresh in long-running processes.
+        系统提示词（包含日期、记忆与技能上下文）会在内部 agent 首次创建时生成，
+        并在配置键不变时复用缓存。长生命周期进程中如需强制刷新，
+        请调用 :meth:`reset_agent`。
 
-    Example::
+    示例::
 
         from src.client import AgentFlowClient
 
         client = AgentFlowClient()
 
-        # Simple one-shot
+        # 简单单轮调用
         print(client.chat("hello"))
 
-        # Streaming
+        # 流式输出
         for event in client.stream("hello"):
             print(event.type, event.data)
 
-        # Configuration queries
+        # 配置查询
         print(client.list_models())
         print(client.list_skills())
     """
@@ -106,19 +105,19 @@ class AgentFlowClient:
         subagent_enabled: bool = False,
         plan_mode: bool = False,
     ):
-        """Initialize the client.
+        """初始化客户端。
 
-        Loads configuration but defers agent creation to first use.
+        会先加载配置，但延迟到首次调用时才创建内部 agent。
 
-        Args:
-            config_path: Path to config.yaml. Uses default resolution if None.
-            checkpointer: LangGraph checkpointer instance for state persistence.
-                Required for multi-turn conversations on the same thread_id.
-                Without a checkpointer, each call is stateless.
-            model_name: Override the default model name from config.
-            thinking_enabled: Enable model's extended thinking.
-            subagent_enabled: Enable subagent delegation.
-            plan_mode: Enable TodoList middleware for plan mode.
+        参数：
+            config_path: `config.yaml` 路径；为 None 时按默认规则解析。
+            checkpointer: LangGraph checkpointer 实例，用于状态持久化。
+                多轮会话复用同一 `thread_id` 时需要该实例；
+                若未配置，则每次调用均为无状态。
+            model_name: 覆盖配置中的默认模型名。
+            thinking_enabled: 是否启用模型扩展思考能力。
+            subagent_enabled: 是否启用子代理委派。
+            plan_mode: 是否启用计划模式（TodoList 中间件）。
         """
         if config_path is not None:
             reload_app_config(config_path)
@@ -130,27 +129,26 @@ class AgentFlowClient:
         self._subagent_enabled = subagent_enabled
         self._plan_mode = plan_mode
 
-        # Lazy agent — created on first call, recreated when config changes.
+        # 延迟初始化 agent：首次调用时创建，配置变化后重建。
         self._agent = None
         self._agent_config_key: tuple | None = None
 
     def reset_agent(self) -> None:
-        """Force the internal agent to be recreated on the next call.
+        """强制在下次调用时重建内部 agent。
 
-        Use this after external changes (e.g. memory updates, skill
-        installations) that should be reflected in the system prompt
-        or tool set.
+        当外部状态发生变化（例如记忆更新、技能安装）且希望
+        反映到系统提示词或工具集合时可调用此方法。
         """
         self._agent = None
         self._agent_config_key = None
 
     # ------------------------------------------------------------------
-    # Internal helpers
+    # 内部辅助方法
     # ------------------------------------------------------------------
 
     @staticmethod
     def _atomic_write_json(path: Path, data: dict) -> None:
-        """Write JSON to *path* atomically (temp file + replace)."""
+        """以原子方式将 JSON 写入 *path*（临时文件 + replace）。"""
         fd = tempfile.NamedTemporaryFile(
             mode="w",
             dir=path.parent,
@@ -167,7 +165,7 @@ class AgentFlowClient:
             raise
 
     def _get_runnable_config(self, thread_id: str, **overrides) -> RunnableConfig:
-        """Build a RunnableConfig for agent invocation."""
+        """构建 agent 调用所需的 `RunnableConfig`。"""
         configurable = {
             "thread_id": thread_id,
             "model_name": overrides.get("model_name", self._model_name),
@@ -181,7 +179,7 @@ class AgentFlowClient:
         )
 
     def _ensure_agent(self, config: RunnableConfig):
-        """Create (or recreate) the agent when config-dependent params change."""
+        """在配置相关参数变化时创建或重建 agent。"""
         cfg = config.get("configurable", {})
         key = (
             cfg.get("model_name"),
@@ -222,14 +220,14 @@ class AgentFlowClient:
 
     @staticmethod
     def _get_tools(*, model_name: str | None, subagent_enabled: bool):
-        """Lazy import to avoid circular dependency at module level."""
+        """延迟导入工具，避免模块级循环依赖。"""
         from src.tools import get_available_tools
 
         return get_available_tools(model_name=model_name, subagent_enabled=subagent_enabled)
 
     @staticmethod
     def _serialize_message(msg) -> dict:
-        """Serialize a LangChain message to a plain dict for values events."""
+        """将 LangChain 消息序列化为普通字典（用于 values 事件）。"""
         if isinstance(msg, AIMessage):
             d: dict[str, Any] = {"type": "ai", "content": msg.content, "id": getattr(msg, "id", None)}
             if msg.tool_calls:
@@ -251,7 +249,7 @@ class AgentFlowClient:
 
     @staticmethod
     def _extract_text(content) -> str:
-        """Extract plain text from AIMessage content (str or list of blocks)."""
+        """从 AIMessage 内容中提取纯文本（兼容 str / 内容块列表）。"""
         if isinstance(content, str):
             return content
         if isinstance(content, list):
@@ -265,7 +263,7 @@ class AgentFlowClient:
         return str(content)
 
     # ------------------------------------------------------------------
-    # Public API — conversation
+    # 对外 API：会话
     # ------------------------------------------------------------------
 
     def stream(
@@ -275,29 +273,27 @@ class AgentFlowClient:
         thread_id: str | None = None,
         **kwargs,
     ) -> Generator[StreamEvent, None, None]:
-        """Stream a conversation turn, yielding events incrementally.
+        """流式执行一轮会话，按增量产出事件。
 
-        Each call sends one user message and yields events until the agent
-        finishes its turn. A ``checkpointer`` must be provided at init time
-        for multi-turn context to be preserved across calls.
+        每次调用会发送一条用户消息，并持续产出事件直到 agent 完成当前轮。
+        若希望跨调用保留多轮上下文，需要在初始化时提供 ``checkpointer``。
 
-        Event types align with the LangGraph SSE protocol so that
-        consumers can switch between HTTP streaming and embedded mode
-        without changing their event-handling logic.
+        事件类型遵循 LangGraph SSE 协议，便于在 HTTP 流式与嵌入式调用间
+        复用同一套事件处理逻辑。
 
-        Args:
-            message: User message text.
-            thread_id: Thread ID for conversation context. Auto-generated if None.
-            **kwargs: Override client defaults (model_name, thinking_enabled,
-                plan_mode, subagent_enabled, recursion_limit).
+        参数：
+            message: 用户输入文本。
+            thread_id: 会话线程 ID；为 None 时自动生成。
+            **kwargs: 覆盖客户端默认配置（如 model_name、thinking_enabled、
+                plan_mode、subagent_enabled、recursion_limit）。
 
-        Yields:
-            StreamEvent with one of:
-            - type="values"          data={"title": str|None, "messages": [...], "artifacts": [...]}
-            - type="messages-tuple"  data={"type": "ai", "content": str, "id": str}
-            - type="messages-tuple"  data={"type": "ai", "content": "", "id": str, "tool_calls": [...]}
-            - type="messages-tuple"  data={"type": "tool", "content": str, "name": str, "tool_call_id": str, "id": str}
-            - type="end"             data={}
+        产出：
+            `StreamEvent`，类型包括：
+            - `type="values"`：`data={"title": str|None, "messages": [...], "artifacts": [...]}`
+            - `type="messages-tuple"`：`data={"type": "ai", "content": str, "id": str}`
+            - `type="messages-tuple"`：`data={"type": "ai", "content": "", "id": str, "tool_calls": [...]}`
+            - `type="messages-tuple"`：`data={"type": "tool", "content": str, "name": str, "tool_call_id": str, "id": str}`
+            - `type="end"`：`data={}`
         """
         if thread_id is None:
             thread_id = str(uuid.uuid4())
@@ -351,7 +347,7 @@ class AgentFlowClient:
                         },
                     )
 
-            # Emit a values event for each state snapshot
+            # 为每个状态快照发出一条 values 事件
             yield StreamEvent(
                 type="values",
                 data={
@@ -364,20 +360,19 @@ class AgentFlowClient:
         yield StreamEvent(type="end", data={})
 
     def chat(self, message: str, *, thread_id: str | None = None, **kwargs) -> str:
-        """Send a message and return the final text response.
+        """发送消息并返回最终文本回复。
 
-        Convenience wrapper around :meth:`stream` that returns only the
-        **last** AI text from ``messages-tuple`` events. If the agent emits
-        multiple text segments in one turn, intermediate segments are
-        discarded. Use :meth:`stream` directly to capture all events.
+        这是 :meth:`stream` 的便捷封装，仅返回 ``messages-tuple`` 事件中
+        **最后一条** AI 文本。若同一轮产生多段文本，中间段会被丢弃；
+        若需要完整事件流，请直接使用 :meth:`stream`。
 
-        Args:
-            message: User message text.
-            thread_id: Thread ID for conversation context. Auto-generated if None.
-            **kwargs: Override client defaults (same as stream()).
+        参数：
+            message: 用户输入文本。
+            thread_id: 会话线程 ID；为 None 时自动生成。
+            **kwargs: 覆盖客户端默认参数（与 `stream()` 一致）。
 
-        Returns:
-            The last AI message text, or empty string if no response.
+        返回：
+            最后一条 AI 文本；若无回复则返回空字符串。
         """
         last_text = ""
         for event in self.stream(message, thread_id=thread_id, **kwargs):
@@ -388,15 +383,15 @@ class AgentFlowClient:
         return last_text
 
     # ------------------------------------------------------------------
-    # Public API — configuration queries
+    # 对外 API：配置查询
     # ------------------------------------------------------------------
 
     def list_models(self) -> dict:
-        """List available models from configuration.
+        """列出配置中的可用模型。
 
-        Returns:
-            Dict with "models" key containing list of model info dicts,
-            matching the Gateway API ``ModelsListResponse`` schema.
+        返回：
+            包含 `models` 键的字典，结构与 Gateway API
+            `ModelsListResponse` 模式一致。
         """
         return {
             "models": [
@@ -412,14 +407,14 @@ class AgentFlowClient:
         }
 
     def list_skills(self, enabled_only: bool = False) -> dict:
-        """List available skills.
+        """列出可用技能。
 
-        Args:
-            enabled_only: If True, only return enabled skills.
+        参数：
+            enabled_only: 为 True 时仅返回已启用技能。
 
-        Returns:
-            Dict with "skills" key containing list of skill info dicts,
-            matching the Gateway API ``SkillsListResponse`` schema.
+        返回：
+            包含 `skills` 键的字典，结构与 Gateway API
+            `SkillsListResponse` 模式一致。
         """
         from src.skills.loader import load_skills
 
@@ -437,24 +432,24 @@ class AgentFlowClient:
         }
 
     def get_memory(self) -> dict:
-        """Get current memory data.
+        """获取当前记忆数据。
 
-        Returns:
-            Memory data dict (see src/agents/memory/updater.py for structure).
+        返回：
+            记忆数据字典（结构见 `src/agents/memory/updater.py`）。
         """
         from src.agents.memory.updater import get_memory_data
 
         return get_memory_data()
 
     def get_model(self, name: str) -> dict | None:
-        """Get a specific model's configuration by name.
+        """按名称获取指定模型配置。
 
-        Args:
-            name: Model name.
+        参数：
+            name: 模型名称。
 
-        Returns:
-            Model info dict matching the Gateway API ``ModelResponse``
-            schema, or None if not found.
+        返回：
+            与 Gateway API `ModelResponse` 模式一致的模型信息字典；
+            未找到时返回 None。
         """
         model = self._app_config.get_model_config(name)
         if model is None:
@@ -468,34 +463,34 @@ class AgentFlowClient:
         }
 
     # ------------------------------------------------------------------
-    # Public API — MCP configuration
+    # 对外 API：MCP 配置
     # ------------------------------------------------------------------
 
     def get_mcp_config(self) -> dict:
-        """Get MCP server configurations.
+        """获取 MCP 服务配置。
 
-        Returns:
-            Dict with "mcp_servers" key mapping server name to config,
-            matching the Gateway API ``McpConfigResponse`` schema.
+        返回：
+            包含 `mcp_servers` 键的字典，键为服务名、值为服务配置，
+            结构与 Gateway API `McpConfigResponse` 模式一致。
         """
         config = get_extensions_config()
         return {"mcp_servers": {name: server.model_dump() for name, server in config.mcp_servers.items()}}
 
     def update_mcp_config(self, mcp_servers: dict[str, dict]) -> dict:
-        """Update MCP server configurations.
+        """更新 MCP 服务配置。
 
-        Writes to extensions_config.json and reloads the cache.
+        该方法会写入 `extensions_config.json` 并重载缓存。
 
-        Args:
-            mcp_servers: Dict mapping server name to config dict.
-                Each value should contain keys like enabled, type, command, args, env, url, etc.
+        参数：
+            mcp_servers: 服务名到配置字典的映射。
+                每个配置通常包含 enabled、type、command、args、env、url 等字段。
 
-        Returns:
-            Dict with "mcp_servers" key, matching the Gateway API
-            ``McpConfigResponse`` schema.
+        返回：
+            包含 `mcp_servers` 键的结果字典，结构与 Gateway API
+            `McpConfigResponse` 模式一致。
 
-        Raises:
-            OSError: If the config file cannot be written.
+        异常：
+            OSError: 配置文件写入失败时抛出。
         """
         config_path = ExtensionsConfig.resolve_config_path()
         if config_path is None:
@@ -515,17 +510,17 @@ class AgentFlowClient:
         return {"mcp_servers": {name: server.model_dump() for name, server in reloaded.mcp_servers.items()}}
 
     # ------------------------------------------------------------------
-    # Public API — skills management
+    # 对外 API：技能管理
     # ------------------------------------------------------------------
 
     def get_skill(self, name: str) -> dict | None:
-        """Get a specific skill by name.
+        """按名称获取技能信息。
 
-        Args:
-            name: Skill name.
+        参数：
+            name: 技能名称。
 
-        Returns:
-            Skill info dict, or None if not found.
+        返回：
+            技能信息字典；未找到时返回 None。
         """
         from src.skills.loader import load_skills
 
@@ -541,18 +536,18 @@ class AgentFlowClient:
         }
 
     def update_skill(self, name: str, *, enabled: bool) -> dict:
-        """Update a skill's enabled status.
+        """更新技能启用状态。
 
-        Args:
-            name: Skill name.
-            enabled: New enabled status.
+        参数：
+            name: 技能名称。
+            enabled: 新的启用状态。
 
-        Returns:
-            Updated skill info dict.
+        返回：
+            更新后的技能信息字典。
 
-        Raises:
-            ValueError: If the skill is not found.
-            OSError: If the config file cannot be written.
+        异常：
+            ValueError: 技能不存在时抛出。
+            OSError: 配置文件写入失败时抛出。
         """
         from src.skills.loader import load_skills
 
@@ -590,17 +585,17 @@ class AgentFlowClient:
         }
 
     def install_skill(self, skill_path: str | Path) -> dict:
-        """Install a skill from a .skill archive (ZIP).
+        """从 `.skill` 压缩包（ZIP）安装技能。
 
-        Args:
-            skill_path: Path to the .skill file.
+        参数：
+            skill_path: `.skill` 文件路径。
 
-        Returns:
-            Dict with success, skill_name, message.
+        返回：
+            包含 success、skill_name、message 的结果字典。
 
-        Raises:
-            FileNotFoundError: If the file does not exist.
-            ValueError: If the file is invalid.
+        异常：
+            FileNotFoundError: 文件不存在时抛出。
+            ValueError: 文件内容或格式非法时抛出。
         """
         from src.gateway.routers.skills import _validate_skill_frontmatter
         from src.skills.loader import get_skills_root_path
@@ -654,24 +649,24 @@ class AgentFlowClient:
         return {"success": True, "skill_name": skill_name, "message": f"Skill '{skill_name}' installed successfully"}
 
     # ------------------------------------------------------------------
-    # Public API — memory management
+    # 对外 API：记忆管理
     # ------------------------------------------------------------------
 
     def reload_memory(self) -> dict:
-        """Reload memory data from file, forcing cache invalidation.
+        """从文件重载记忆数据，并强制缓存失效。
 
-        Returns:
-            The reloaded memory data dict.
+        返回：
+            重载后的记忆数据字典。
         """
         from src.agents.memory.updater import reload_memory_data
 
         return reload_memory_data()
 
     def get_memory_config(self) -> dict:
-        """Get memory system configuration.
+        """获取记忆系统配置。
 
-        Returns:
-            Memory config dict.
+        返回：
+            记忆配置字典。
         """
         from src.config.memory_config import get_memory_config
 
@@ -687,10 +682,10 @@ class AgentFlowClient:
         }
 
     def get_memory_status(self) -> dict:
-        """Get memory status: config + current data.
+        """获取记忆状态（配置 + 当前数据）。
 
-        Returns:
-            Dict with "config" and "data" keys.
+        返回：
+            包含 `config` 与 `data` 键的字典。
         """
         return {
             "config": self.get_memory_config(),
@@ -698,35 +693,35 @@ class AgentFlowClient:
         }
 
     # ------------------------------------------------------------------
-    # Public API — file uploads
+    # 对外 API：文件上传
     # ------------------------------------------------------------------
 
     @staticmethod
     def _get_uploads_dir(thread_id: str) -> Path:
-        """Get (and create) the uploads directory for a thread."""
+        """获取线程 uploads 目录（不存在则创建）。"""
         base = get_paths().sandbox_uploads_dir(thread_id)
         base.mkdir(parents=True, exist_ok=True)
         return base
 
     def upload_files(self, thread_id: str, files: list[str | Path]) -> dict:
-        """Upload local files into a thread's uploads directory.
+        """将本地文件上传到指定线程的 uploads 目录。
 
-        For PDF, PPT, Excel, and Word files, they are also converted to Markdown.
+        对 PDF、PPT、Excel、Word 文件会额外尝试转换为 Markdown。
 
-        Args:
-            thread_id: Target thread ID.
-            files: List of local file paths to upload.
+        参数：
+            thread_id: 目标线程 ID。
+            files: 待上传本地文件路径列表。
 
-        Returns:
-            Dict with success, files, message — matching the Gateway API
-            ``UploadResponse`` schema.
+        返回：
+            包含 success、files、message 的结果字典，
+            与 Gateway API `UploadResponse` 结构一致。
 
-        Raises:
-            FileNotFoundError: If any file does not exist.
+        异常：
+            FileNotFoundError: 任一文件不存在时抛出。
         """
         from src.gateway.routers.uploads import CONVERTIBLE_EXTENSIONS, convert_file_to_markdown
 
-        # Validate all files upfront to avoid partial uploads.
+        # 先校验全部文件，避免发生部分上传成功的情况。
         resolved_files = []
         for f in files:
             p = Path(f)
@@ -777,14 +772,14 @@ class AgentFlowClient:
         }
 
     def list_uploads(self, thread_id: str) -> dict:
-        """List files in a thread's uploads directory.
+        """列出线程 uploads 目录中的文件。
 
-        Args:
-            thread_id: Thread ID.
+        参数：
+            thread_id: 线程 ID。
 
-        Returns:
-            Dict with "files" and "count" keys, matching the Gateway API
-            ``list_uploaded_files`` response.
+        返回：
+            包含 `files` 与 `count` 的结果字典，
+            与 Gateway API `list_uploaded_files` 返回结构一致。
         """
         uploads_dir = self._get_uploads_dir(thread_id)
         if not uploads_dir.exists():
@@ -808,19 +803,19 @@ class AgentFlowClient:
         return {"files": files, "count": len(files)}
 
     def delete_upload(self, thread_id: str, filename: str) -> dict:
-        """Delete a file from a thread's uploads directory.
+        """删除线程 uploads 目录中的文件。
 
-        Args:
-            thread_id: Thread ID.
-            filename: Filename to delete.
+        参数：
+            thread_id: 线程 ID。
+            filename: 待删除文件名。
 
-        Returns:
-            Dict with success and message, matching the Gateway API
-            ``delete_uploaded_file`` response.
+        返回：
+            包含 success 与 message 的结果字典，
+            与 Gateway API `delete_uploaded_file` 返回结构一致。
 
-        Raises:
-            FileNotFoundError: If the file does not exist.
-            PermissionError: If path traversal is detected.
+        异常：
+            FileNotFoundError: 文件不存在时抛出。
+            PermissionError: 检测到路径穿越时抛出。
         """
         uploads_dir = self._get_uploads_dir(thread_id)
         file_path = (uploads_dir / filename).resolve()
@@ -837,22 +832,22 @@ class AgentFlowClient:
         return {"success": True, "message": f"Deleted {filename}"}
 
     # ------------------------------------------------------------------
-    # Public API — artifacts
+    # 对外 API：产物文件
     # ------------------------------------------------------------------
 
     def get_artifact(self, thread_id: str, path: str) -> tuple[bytes, str]:
-        """Read an artifact file produced by the agent.
+        """读取 agent 生成的产物文件。
 
-        Args:
-            thread_id: Thread ID.
-            path: Virtual path (e.g. "mnt/user-data/outputs/file.txt").
+        参数：
+            thread_id: 线程 ID。
+            path: 虚拟路径（如 `"mnt/user-data/outputs/file.txt"`）。
 
-        Returns:
-            Tuple of (file_bytes, mime_type).
+        返回：
+            `(file_bytes, mime_type)` 元组。
 
-        Raises:
-            FileNotFoundError: If the artifact does not exist.
-            ValueError: If the path is invalid.
+        异常：
+            FileNotFoundError: 产物文件不存在时抛出。
+            ValueError: 路径非法时抛出。
         """
         virtual_prefix = "mnt/user-data"
         clean_path = path.lstrip("/")

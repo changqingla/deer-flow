@@ -9,14 +9,14 @@ readability_extractor = ReadabilityExtractor()
 
 @tool("web_fetch", parse_docstring=True)
 def web_fetch_tool(url: str) -> str:
-    """Fetch the contents of a web page at a given URL.
-    Only fetch EXACT URLs that have been provided directly by the user or have been returned in results from the web_search and web_fetch tools.
-    This tool can NOT access content that requires authentication, such as private Google Docs or pages behind login walls.
-    Do NOT add www. to URLs that do NOT have them.
-    URLs must include the schema: https://example.com is a valid URL while example.com is an invalid URL.
+    """
+    只能抓取以下来源的精确 URL：用户直接提供，或来自 web_search / web_fetch 工具结果。
+    本工具无法访问需要认证的内容（例如私有 Google Docs、登录墙后页面）。
+    不要给原本不带 `www.` 的 URL 人工添加 `www.`。
+    URL 必须包含协议头：`https://example.com` 是合法 URL，`example.com` 非法。
 
-    Args:
-        url: The URL to fetch the contents of.
+    参数：
+        url: 要抓取内容的 URL。
     """
     jina_client = JinaClient()
     timeout = 10

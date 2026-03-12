@@ -1,4 +1,4 @@
-"""Subagent registry for managing available subagents."""
+"""用于管理可用子代理的注册表。"""
 
 import logging
 from dataclasses import replace
@@ -10,19 +10,20 @@ logger = logging.getLogger(__name__)
 
 
 def get_subagent_config(name: str) -> SubagentConfig | None:
-    """Get a subagent configuration by name, with config.yaml overrides applied.
+    """按名称获取子代理配置。
 
-    Args:
-        name: The name of the subagent.
+    参数：
+        name: 子代理名称。
 
-    Returns:
-        SubagentConfig if found (with any config.yaml overrides applied), None otherwise.
+    返回：
+        找到时返回 `SubagentConfig`（已应用 `config.yaml` 覆盖项），
+        否则返回 None。
     """
     config = BUILTIN_SUBAGENTS.get(name)
     if config is None:
         return None
 
-    # Apply timeout override from config.yaml (lazy import to avoid circular deps)
+    # 应用来自 config.yaml 的超时覆盖（延迟导入以避免循环依赖）
     from src.config.subagents_config import get_subagents_app_config
 
     app_config = get_subagents_app_config()
@@ -35,18 +36,10 @@ def get_subagent_config(name: str) -> SubagentConfig | None:
 
 
 def list_subagents() -> list[SubagentConfig]:
-    """List all available subagent configurations (with config.yaml overrides applied).
-
-    Returns:
-        List of all registered SubagentConfig instances.
-    """
+    """返回所有已注册子代理配置列表。"""
     return [get_subagent_config(name) for name in BUILTIN_SUBAGENTS]
 
 
 def get_subagent_names() -> list[str]:
-    """Get all available subagent names.
-
-    Returns:
-        List of subagent names.
-    """
+    """返回所有子代理名称列表。"""
     return list(BUILTIN_SUBAGENTS.keys())

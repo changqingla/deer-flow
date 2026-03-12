@@ -1,4 +1,4 @@
-"""ChannelManager — consumes inbound messages and dispatches them to the AgentFlow agent via LangGraph Server."""
+"""通道管理器（ChannelManager）：消费入站消息并通过 LangGraph Server 分发给 AgentFlow。"""
 
 from __future__ import annotations
 
@@ -38,15 +38,14 @@ def _merge_dicts(*layers: Any) -> dict[str, Any]:
 
 
 def _extract_response_text(result: dict | list) -> str:
-    """Extract the last AI message text from a LangGraph runs.wait result.
+    """
+    ``runs.wait`` 会返回最终状态字典，其中包含 ``messages`` 列表。
+    每条消息至少包含 ``type`` 与 ``content`` 字段。
 
-    ``runs.wait`` returns the final state dict which contains a ``messages``
-    list.  Each message is a dict with at least ``type`` and ``content``.
-
-    Handles special cases:
-    - Regular AI text responses
-    - Clarification interrupts (``ask_clarification`` tool messages)
-    - AI messages with tool_calls but no text content
+    处理的特殊情况：
+    - 常规 AI 文本回复
+    - 澄清中断（``ask_clarification`` 工具消息）
+    - 带 tool_calls 但无文本内容的 AI 消息
     """
     if isinstance(result, list):
         messages = result
@@ -55,30 +54,30 @@ def _extract_response_text(result: dict | list) -> str:
     else:
         return ""
 
-    # Walk backwards to find usable response text, but stop at the last
-    # human message to avoid returning text from a previous turn.
+    # 倒序查找可用回复文本，但在最后一条 human 消息处停止，
+    # 以免返回上一轮的文本内容。
     for msg in reversed(messages):
         if not isinstance(msg, dict):
             continue
 
         msg_type = msg.get("type")
 
-        # Stop at the last human message — anything before it is a previous turn
+        # 在最后一条 human 消息处停止，之前内容属于上一轮
         if msg_type == "human":
             break
 
-        # Check for tool messages from ask_clarification (interrupt case)
+        # 检查 ask_clarification 的工具消息（中断场景）
         if msg_type == "tool" and msg.get("name") == "ask_clarification":
             content = msg.get("content", "")
             if isinstance(content, str) and content:
                 return content
 
-        # Regular AI message with text content
+        # 常规 AI 文本消息
         if msg_type == "ai":
             content = msg.get("content", "")
             if isinstance(content, str) and content:
                 return content
-            # content can be a list of content blocks
+            # 消息内容（content）也可能是内容块列表
             if isinstance(content, list):
                 parts = []
                 for block in content:
@@ -93,12 +92,11 @@ def _extract_response_text(result: dict | list) -> str:
 
 
 def _extract_artifacts(result: dict | list) -> list[str]:
-    """Extract artifact paths from the last AI response cycle only.
+    """
+    不直接读取全量 ``artifacts`` 状态（该状态包含线程历史所有产物），
+    而是检查最后一条 human 消息之后的消息，收集 ``present_files`` 工具调用中的文件路径。
+    这样可确保只返回本轮新生成的产物。
 
-    Instead of reading the full accumulated ``artifacts`` state (which contains
-    all artifacts ever produced in the thread), this inspects the messages after
-    the last human message and collects file paths from ``present_files`` tool
-    calls.  This ensures only newly-produced artifacts are returned.
     """
     if isinstance(result, list):
         messages = result
@@ -111,10 +109,10 @@ def _extract_artifacts(result: dict | list) -> list[str]:
     for msg in reversed(messages):
         if not isinstance(msg, dict):
             continue
-        # Stop at the last human message — anything before it is a previous turn
+        # 在最后一条 human 消息处停止，之前内容属于上一轮
         if msg.get("type") == "human":
             break
-        # Look for AI messages with present_files tool calls
+        # 查找包含 present_files 工具调用的 AI 消息
         if msg.get("type") == "ai":
             for tc in msg.get("tool_calls", []):
                 if isinstance(tc, dict) and tc.get("name") == "present_files":
@@ -126,7 +124,7 @@ def _extract_artifacts(result: dict | list) -> list[str]:
 
 
 def _format_artifact_text(artifacts: list[str]) -> str:
-    """Format artifact paths into a human-readable text block listing filenames."""
+    """将产物路径格式化为可读文本，仅展示文件名列表。"""
     import posixpath
 
     filenames = [posixpath.basename(p) for p in artifacts]
@@ -139,14 +137,11 @@ _OUTPUTS_VIRTUAL_PREFIX = "/mnt/user-data/outputs/"
 
 
 def _resolve_attachments(thread_id: str, artifacts: list[str]) -> list[ResolvedAttachment]:
-    """Resolve virtual artifact paths to host filesystem paths with metadata.
+    """
+    仅接受 ``/mnt/user-data/outputs/`` 下的路径；其他虚拟路径会被告警并拒绝，
+    以防通过 IM 通道外泄 uploads 或 workspace 文件。
 
-    Only paths under ``/mnt/user-data/outputs/`` are accepted; any other
-    virtual path is rejected with a warning to prevent exfiltrating uploads
-    or workspace files via IM channels.
-
-    Skips artifacts that cannot be resolved (missing files, invalid paths)
-    and logs warnings for them.
+    对无法解析的产物（文件缺失、路径非法）会跳过并记录告警。
     """
     from src.config.paths import get_paths
 
@@ -154,14 +149,14 @@ def _resolve_attachments(thread_id: str, artifacts: list[str]) -> list[ResolvedA
     paths = get_paths()
     outputs_dir = paths.sandbox_outputs_dir(thread_id).resolve()
     for virtual_path in artifacts:
-        # Security: only allow files from the agent outputs directory
+        # 安全限制：只允许 Agent outputs 目录下的文件
         if not virtual_path.startswith(_OUTPUTS_VIRTUAL_PREFIX):
             logger.warning("[Manager] rejected non-outputs artifact path: %s", virtual_path)
             continue
         try:
             actual = paths.resolve_virtual_path(thread_id, virtual_path)
-            # Verify the resolved path is actually under the outputs directory
-            # (guards against path-traversal even after prefix check)
+            # 校验解析后的路径确实在 outputs 目录内
+            # （防止即使通过前缀检查仍发生路径穿越）
             try:
                 actual.resolve().relative_to(outputs_dir)
             except ValueError:
@@ -186,11 +181,10 @@ def _resolve_attachments(thread_id: str, artifacts: list[str]) -> list[ResolvedA
 
 
 class ChannelManager:
-    """Core dispatcher that bridges IM channels to the AgentFlow agent.
+    """
+    从 MessageBus 入站队列读取消息，在 LangGraph Server 创建/复用线程，
+    通过 ``runs.wait`` 发送消息，并将出站响应重新发布到总线。
 
-    It reads from the MessageBus inbound queue, creates/reuses threads on
-    the LangGraph Server, sends messages via ``runs.wait``, and publishes
-    outbound responses back through the bus.
     """
 
     def __init__(
@@ -213,7 +207,7 @@ class ChannelManager:
         self._assistant_id = assistant_id
         self._default_session = _as_dict(default_session)
         self._channel_sessions = dict(channel_sessions or {})
-        self._client = None  # lazy init — langgraph_sdk async client
+        self._client = None  # 延迟初始化：langgraph_sdk 异步客户端
         self._semaphore: asyncio.Semaphore | None = None
         self._running = False
         self._task: asyncio.Task | None = None
@@ -253,20 +247,20 @@ class ChannelManager:
 
         return assistant_id, run_config, run_context
 
-    # -- LangGraph SDK client (lazy) ----------------------------------------
+    # -- LangGraph SDK 客户端（延迟初始化） ----------------------------------
 
     def _get_client(self):
-        """Return the ``langgraph_sdk`` async client, creating it on first use."""
+        """返回 ``langgraph_sdk`` 异步客户端，首次调用时创建。"""
         if self._client is None:
             from langgraph_sdk import get_client
 
             self._client = get_client(url=self._langgraph_url)
         return self._client
 
-    # -- lifecycle ---------------------------------------------------------
+    # -- 生命周期 ------------------------------------------------------------
 
     async def start(self) -> None:
-        """Start the dispatch loop."""
+        """启动分发循环。"""
         if self._running:
             return
         self._running = True
@@ -275,7 +269,7 @@ class ChannelManager:
         logger.info("ChannelManager started (max_concurrency=%d)", self._max_concurrency)
 
     async def stop(self) -> None:
-        """Stop the dispatch loop."""
+        """停止分发循环。"""
         self._running = False
         if self._task:
             self._task.cancel()
@@ -286,7 +280,7 @@ class ChannelManager:
             self._task = None
         logger.info("ChannelManager stopped")
 
-    # -- dispatch loop -----------------------------------------------------
+    # -- 分发循环 ------------------------------------------------------------
 
     async def _dispatch_loop(self) -> None:
         logger.info("[Manager] dispatch loop started, waiting for inbound messages")
@@ -310,7 +304,7 @@ class ChannelManager:
 
     @staticmethod
     def _log_task_error(task: asyncio.Task) -> None:
-        """Surface unhandled exceptions from background tasks."""
+        """暴露后台任务中未处理的异常。"""
         if task.cancelled():
             return
         exc = task.exception()
@@ -332,10 +326,10 @@ class ChannelManager:
                 )
                 await self._send_error(msg, "An internal error occurred. Please try again.")
 
-    # -- chat handling -----------------------------------------------------
+    # -- 聊天处理 ------------------------------------------------------------
 
     async def _create_thread(self, client, msg: InboundMessage) -> str:
-        """Create a new thread on the LangGraph Server and store the mapping."""
+        """在 LangGraph Server 创建新线程并保存映射。"""
         thread = await client.threads.create()
         thread_id = thread["thread_id"]
         self.store.set_thread_id(
@@ -351,14 +345,14 @@ class ChannelManager:
     async def _handle_chat(self, msg: InboundMessage) -> None:
         client = self._get_client()
 
-        # Look up existing AgentFlow thread by topic_id (if present)
+        # 若存在 topic_id，则先查找已有 AgentFlow 线程
         thread_id = None
         if msg.topic_id:
             thread_id = self.store.get_thread_id(msg.channel_name, msg.chat_id, topic_id=msg.topic_id)
             if thread_id:
                 logger.info("[Manager] reusing thread: thread_id=%s for topic_id=%s", thread_id, msg.topic_id)
 
-        # No existing thread found — create a new one
+        # 未找到已有线程时创建新线程
         if thread_id is None:
             thread_id = await self._create_thread(client, msg)
 
@@ -382,7 +376,7 @@ class ChannelManager:
             len(artifacts),
         )
 
-        # Resolve artifact virtual paths to actual files for channel upload
+        # 将产物虚拟路径解析为实际文件，供通道上传
         attachments: list[ResolvedAttachment] = []
         if artifacts:
             attachments = _resolve_attachments(thread_id, artifacts)
@@ -391,8 +385,8 @@ class ChannelManager:
             if unresolved:
                 artifact_text = _format_artifact_text(unresolved)
                 response_text = (response_text + "\n\n" + artifact_text) if response_text else artifact_text
-            # Always include resolved attachment filenames as a text fallback so
-            # files remain discoverable even when the upload is skipped or fails.
+            # 始终把已解析附件文件名附加到文本作为兜底，
+            # 即使上传跳过或失败，用户仍可感知文件产物。
             if attachments:
                 resolved_text = _format_artifact_text([a.virtual_path for a in attachments])
                 response_text = (response_text + "\n\n" + resolved_text) if response_text else resolved_text
@@ -415,7 +409,7 @@ class ChannelManager:
         logger.info("[Manager] publishing outbound message to bus: channel=%s, chat_id=%s", msg.channel_name, msg.chat_id)
         await self.bus.publish_outbound(outbound)
 
-    # -- command handling --------------------------------------------------
+    # -- 命令处理 ------------------------------------------------------------
 
     async def _handle_command(self, msg: InboundMessage) -> None:
         text = msg.text.strip()
@@ -423,7 +417,7 @@ class ChannelManager:
         command = parts[0].lower().lstrip("/")
 
         if command == "new":
-            # Create a new thread on the LangGraph Server
+            # 在 LangGraph Server 创建新线程
             client = self._get_client()
             thread = await client.threads.create()
             new_thread_id = thread["thread_id"]
@@ -457,7 +451,7 @@ class ChannelManager:
         await self.bus.publish_outbound(outbound)
 
     async def _fetch_gateway(self, path: str, kind: str) -> str:
-        """Fetch data from the Gateway API for command responses."""
+        """从 Gateway API 拉取命令回复所需数据。"""
         import httpx
 
         try:
@@ -477,7 +471,7 @@ class ChannelManager:
             return f"Memory contains {len(facts)} fact(s)."
         return str(data)
 
-    # -- error helper ------------------------------------------------------
+    # -- 错误辅助 ------------------------------------------------------------
 
     async def _send_error(self, msg: InboundMessage, error_text: str) -> None:
         outbound = OutboundMessage(

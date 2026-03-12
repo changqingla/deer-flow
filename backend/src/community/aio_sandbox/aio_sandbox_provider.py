@@ -1,13 +1,12 @@
-"""AIO Sandbox Provider — orchestrates sandbox lifecycle with pluggable backends.
+"""
+该 Provider 由以下组件组合而成：
+- SandboxBackend：决定沙箱如何被供给（本地容器或远端/K8s）
 
-This provider composes:
-- SandboxBackend: how sandboxes are provisioned (local container vs remote/K8s)
-
-The provider itself handles:
-- In-process caching for fast repeated access
-- Idle timeout management
-- Graceful shutdown with signal handling
-- Mount computation (thread-specific, skills)
+Provider 自身负责：
+- 进程内缓存（提升重复访问性能）
+- 空闲超时管理
+- 带信号处理的优雅关闭
+- 挂载计算（线程目录、技能目录）
 """
 
 import atexit
@@ -33,50 +32,48 @@ from .sandbox_info import SandboxInfo
 
 logger = logging.getLogger(__name__)
 
-# Default configuration
+# 默认配置
 DEFAULT_IMAGE = "enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest"
 DEFAULT_PORT = 8080
-DEFAULT_CONTAINER_PREFIX = "deer-flow-sandbox"
-DEFAULT_IDLE_TIMEOUT = 600  # 10 minutes in seconds
-DEFAULT_REPLICAS = 3  # Maximum concurrent sandbox containers
-IDLE_CHECK_INTERVAL = 60  # Check every 60 seconds
+DEFAULT_CONTAINER_PREFIX = "agent-flow-sandbox"
+DEFAULT_IDLE_TIMEOUT = 600  # 10 分钟（秒）
+DEFAULT_REPLICAS = 3  # 最大并发沙箱容器数
+IDLE_CHECK_INTERVAL = 60  # 每 60 秒检查一次
 
 
 class AioSandboxProvider(SandboxProvider):
-    """Sandbox provider that manages containers running the AIO sandbox.
+    """
+    架构：
+        Provider 组合 SandboxBackend（供给方式），支持：
+        - 本地 Docker/Apple Container 模式（自动启停容器）
+        - 远端/K8s 模式（连接预存在的沙箱 URL）
 
-    Architecture:
-        This provider composes a SandboxBackend (how to provision), enabling:
-        - Local Docker/Apple Container mode (auto-start containers)
-        - Remote/K8s mode (connect to pre-existing sandbox URL)
-
-    Configuration options in config.yaml under sandbox:
+    在 config.yaml 的 sandbox 下可配置：
         use: src.community.aio_sandbox:AioSandboxProvider
         image: <container image>
-        port: 8080                      # Base port for local containers
+        port: 8080                      # 本地容器基础端口
         container_prefix: deer-flow-sandbox
-        idle_timeout: 600               # Idle timeout in seconds (0 to disable)
-        replicas: 3                     # Max concurrent sandbox containers (LRU eviction when exceeded)
-        mounts:                         # Volume mounts for local containers
+        idle_timeout: 600               # 空闲超时（秒，0 表示禁用）
+        replicas: 3                     # 最大并发容器数（超限后按 LRU 驱逐）
+        mounts:                         # 本地容器挂载
           - host_path: /path/on/host
             container_path: /path/in/container
             read_only: false
-        environment:                    # Environment variables for containers
+        environment:                    # 容器环境变量
           NODE_ENV: production
           API_KEY: $MY_API_KEY
     """
 
     def __init__(self):
         self._lock = threading.Lock()
-        self._sandboxes: dict[str, AioSandbox] = {}  # sandbox_id -> AioSandbox instance
-        self._sandbox_infos: dict[str, SandboxInfo] = {}  # sandbox_id -> SandboxInfo (for destroy)
+        self._sandboxes: dict[str, AioSandbox] = {}  # sandbox_id -> AioSandbox 实例
+        self._sandbox_infos: dict[str, SandboxInfo] = {}  # sandbox_id -> SandboxInfo（供 destroy 使用）
         self._thread_sandboxes: dict[str, str] = {}  # thread_id -> sandbox_id
-        self._thread_locks: dict[str, threading.Lock] = {}  # thread_id -> in-process lock
-        self._last_activity: dict[str, float] = {}  # sandbox_id -> last activity timestamp
-        # Warm pool: released sandboxes whose containers are still running.
-        # Maps sandbox_id -> (SandboxInfo, release_timestamp).
-        # Containers here can be reclaimed quickly (no cold-start) or destroyed
-        # when replicas capacity is exhausted.
+        self._thread_locks: dict[str, threading.Lock] = {}  # thread_id -> 进程内锁
+        self._last_activity: dict[str, float] = {}  # sandbox_id -> 最近活跃时间戳
+        # 预热池（warm pool）：已释放但容器仍在运行的沙箱。
+        # 结构：sandbox_id -> (SandboxInfo, release_timestamp)。
+        # 容器可被快速回收（避免冷启动），或在 replicas 满载时销毁。
         self._warm_pool: dict[str, tuple[SandboxInfo, float]] = {}
         self._shutdown_called = False
         self._idle_checker_stop = threading.Event()
@@ -85,24 +82,24 @@ class AioSandboxProvider(SandboxProvider):
         self._config = self._load_config()
         self._backend: SandboxBackend = self._create_backend()
 
-        # Register shutdown handler
+        # 注册关闭处理
         atexit.register(self.shutdown)
         self._register_signal_handlers()
 
-        # Start idle checker if enabled
+        # 若启用空闲检查则启动后台线程
         if self._config.get("idle_timeout", DEFAULT_IDLE_TIMEOUT) > 0:
             self._start_idle_checker()
 
-    # ── Factory methods ──────────────────────────────────────────────────
+    # ── 工厂方法 ───────────────────────────────────────────────────────────
 
     def _create_backend(self) -> SandboxBackend:
-        """Create the appropriate backend based on configuration.
+        """
+        选择逻辑（按顺序）：
+        1. 设置了 ``provisioner_url`` → RemoteSandboxBackend（provisioner 模式）
+              provisioner 在 k3s 中动态创建 Pod + Service。
+        2. 否则默认 → LocalContainerBackend（本地模式）
+              由本地 provider 直接管理容器启停。
 
-        Selection logic (checked in order):
-        1. ``provisioner_url`` set → RemoteSandboxBackend (provisioner mode)
-              Provisioner dynamically creates Pods + Services in k3s.
-        2. Default → LocalContainerBackend (local mode)
-              Local provider manages container lifecycle directly (start/stop).
         """
         provisioner_url = self._config.get("provisioner_url")
         if provisioner_url:
@@ -118,10 +115,10 @@ class AioSandboxProvider(SandboxProvider):
             environment=self._config["environment"],
         )
 
-    # ── Configuration ────────────────────────────────────────────────────
+    # ── 配置 ───────────────────────────────────────────────────────────────
 
     def _load_config(self) -> dict:
-        """Load sandbox configuration from app config."""
+        """从应用配置加载沙箱配置。"""
         config = get_app_config()
         sandbox_config = config.sandbox
 
@@ -136,13 +133,13 @@ class AioSandboxProvider(SandboxProvider):
             "replicas": replicas if replicas is not None else DEFAULT_REPLICAS,
             "mounts": sandbox_config.mounts or [],
             "environment": self._resolve_env_vars(sandbox_config.environment or {}),
-            # provisioner URL for dynamic pod management (e.g. http://provisioner:8002)
+            # 预配置服务地址（provisioner_url），用于动态管理 Pod（例如 http://provisioner:8002）
             "provisioner_url": getattr(sandbox_config, "provisioner_url", None) or "",
         }
 
     @staticmethod
     def _resolve_env_vars(env_config: dict[str, str]) -> dict[str, str]:
-        """Resolve environment variable references (values starting with $)."""
+        """解析环境变量引用（以 `$` 开头的值）。"""
         resolved = {}
         for key, value in env_config.items():
             if isinstance(value, str) and value.startswith("$"):
@@ -152,21 +149,21 @@ class AioSandboxProvider(SandboxProvider):
                 resolved[key] = str(value)
         return resolved
 
-    # ── Deterministic ID ─────────────────────────────────────────────────
+    # ── 确定性 ID ──────────────────────────────────────────────────────────
 
     @staticmethod
     def _deterministic_sandbox_id(thread_id: str) -> str:
-        """Generate a deterministic sandbox ID from a thread ID.
+        """
+        保证同一 thread_id 在所有进程得到相同 sandbox_id，
+        从而无需共享内存也可做跨进程发现。
 
-        Ensures all processes derive the same sandbox_id for a given thread,
-        enabling cross-process sandbox discovery without shared memory.
         """
         return hashlib.sha256(thread_id.encode()).hexdigest()[:8]
 
-    # ── Mount helpers ────────────────────────────────────────────────────
+    # ── 挂载辅助 ───────────────────────────────────────────────────────────
 
     def _get_extra_mounts(self, thread_id: str | None) -> list[tuple[str, str, bool]]:
-        """Collect all extra mounts for a sandbox (thread-specific + skills)."""
+        """收集沙箱所需额外挂载（线程目录 + 技能目录）。"""
         mounts: list[tuple[str, str, bool]] = []
 
         if thread_id:
@@ -182,17 +179,17 @@ class AioSandboxProvider(SandboxProvider):
 
     @staticmethod
     def _get_thread_mounts(thread_id: str) -> list[tuple[str, str, bool]]:
-        """Get volume mounts for a thread's data directories.
+        """
+        若目录不存在会懒创建。
+        挂载源使用 host_base_dir，确保在 Docker 内运行且挂载 Docker socket（DooD）时，
+        宿主机 Docker daemon 能正确解析路径。
 
-        Creates directories if they don't exist (lazy initialization).
-        Mount sources use host_base_dir so that when running inside Docker with a
-        mounted Docker socket (DooD), the host Docker daemon can resolve the paths.
         """
         paths = get_paths()
         paths.ensure_thread_dirs(thread_id)
 
-        # host_paths resolves to the host-side base dir when DEER_FLOW_HOST_BASE_DIR
-        # is set, otherwise falls back to the container's own base dir (native mode).
+        # 设置了 DEER_FLOW_HOST_BASE_DIR 时，host_paths 解析到宿主机基目录；
+        # 否则回退到容器自身基目录（原生模式）。
         host_paths = Paths(base_dir=paths.host_base_dir)
 
         return [
@@ -203,10 +200,10 @@ class AioSandboxProvider(SandboxProvider):
 
     @staticmethod
     def _get_skills_mount() -> tuple[str, str, bool] | None:
-        """Get the skills directory mount configuration.
+        """
+        在 Docker 内运行（DooD）时，挂载源使用 DEER_FLOW_HOST_SKILLS_PATH，
+        以保证宿主机 Docker daemon 可解析该路径。
 
-        Mount source uses DEER_FLOW_HOST_SKILLS_PATH when running inside Docker (DooD)
-        so the host Docker daemon can resolve the path.
         """
         try:
             config = get_app_config()
@@ -214,17 +211,17 @@ class AioSandboxProvider(SandboxProvider):
             container_path = config.skills.container_path
 
             if skills_path.exists():
-                # When running inside Docker with DooD, use host-side skills path.
-                host_skills = os.environ.get("DEER_FLOW_HOST_SKILLS_PATH") or str(skills_path)
-                return (host_skills, container_path, True)  # Read-only for security
+                # 在 Docker + DooD 场景下优先使用宿主机技能目录路径
+                host_skills = os.environ.get("AGENT_FLOW_HOST_SKILLS_PATH") or str(skills_path)
+                return (host_skills, container_path, True)  # 出于安全考虑只读挂载
         except Exception as e:
             logger.warning(f"Could not setup skills mount: {e}")
         return None
 
-    # ── Idle timeout management ──────────────────────────────────────────
+    # ── 空闲超时管理 ───────────────────────────────────────────────────────
 
     def _start_idle_checker(self) -> None:
-        """Start the background thread that checks for idle sandboxes."""
+        """启动后台线程，定期检查空闲沙箱。"""
         self._idle_checker_thread = threading.Thread(
             target=self._idle_checker_loop,
             name="sandbox-idle-checker",
@@ -247,14 +244,14 @@ class AioSandboxProvider(SandboxProvider):
         warm_to_destroy: list[tuple[str, SandboxInfo]] = []
 
         with self._lock:
-            # Active sandboxes: tracked via _last_activity
+            # 活跃沙箱：由 _last_activity 跟踪
             for sandbox_id, last_activity in self._last_activity.items():
                 idle_duration = current_time - last_activity
                 if idle_duration > idle_timeout:
                     active_to_destroy.append(sandbox_id)
                     logger.info(f"Sandbox {sandbox_id} idle for {idle_duration:.1f}s, marking for destroy")
 
-            # Warm pool: tracked via release_timestamp stored in _warm_pool
+            # 预热池（warm pool）：由 _warm_pool 中的 release_timestamp 跟踪
             for sandbox_id, (info, release_ts) in list(self._warm_pool.items()):
                 warm_duration = current_time - release_ts
                 if warm_duration > idle_timeout:
@@ -262,20 +259,20 @@ class AioSandboxProvider(SandboxProvider):
                     del self._warm_pool[sandbox_id]
                     logger.info(f"Warm-pool sandbox {sandbox_id} idle for {warm_duration:.1f}s, marking for destroy")
 
-        # Destroy active sandboxes (re-verify still idle before acting)
+        # 销毁活跃沙箱（执行前再次确认仍为空闲）
         for sandbox_id in active_to_destroy:
             try:
-                # Re-verify the sandbox is still idle under the lock before destroying.
-                # Between the snapshot above and here, the sandbox may have been
-                # re-acquired (last_activity updated) or already released/destroyed.
+                # 在加锁状态下二次确认沙箱仍为空闲再销毁。
+                # 从上方快照到当前，沙箱可能已被重新获取（last_activity 更新）
+                # 或已被其他流程释放/销毁。
                 with self._lock:
                     last_activity = self._last_activity.get(sandbox_id)
                     if last_activity is None:
-                        # Already released or destroyed by another path — skip.
+                        # 已被其他路径释放或销毁，跳过。
                         logger.info(f"Sandbox {sandbox_id} already gone before idle destroy, skipping")
                         continue
                     if (time.time() - last_activity) < idle_timeout:
-                        # Re-acquired (activity updated) since the snapshot — skip.
+                        # 快照之后已被重新获取（活跃时间已更新），跳过。
                         logger.info(f"Sandbox {sandbox_id} was re-acquired before idle destroy, skipping")
                         continue
                 logger.info(f"Destroying idle sandbox {sandbox_id}")
@@ -283,7 +280,7 @@ class AioSandboxProvider(SandboxProvider):
             except Exception as e:
                 logger.error(f"Failed to destroy idle sandbox {sandbox_id}: {e}")
 
-        # Destroy warm-pool sandboxes (already removed from _warm_pool under lock above)
+        # 销毁 warm-pool 沙箱（前面在锁内已从 _warm_pool 移除）
         for sandbox_id, info in warm_to_destroy:
             try:
                 self._backend.destroy(info)
@@ -291,10 +288,10 @@ class AioSandboxProvider(SandboxProvider):
             except Exception as e:
                 logger.error(f"Failed to destroy idle warm-pool sandbox {sandbox_id}: {e}")
 
-    # ── Signal handling ──────────────────────────────────────────────────
+    # ── 信号处理 ───────────────────────────────────────────────────────────
 
     def _register_signal_handlers(self) -> None:
-        """Register signal handlers for graceful shutdown."""
+        """注册信号处理器以实现优雅关闭。"""
         self._original_sigterm = signal.getsignal(signal.SIGTERM)
         self._original_sigint = signal.getsignal(signal.SIGINT)
 
@@ -313,31 +310,29 @@ class AioSandboxProvider(SandboxProvider):
         except ValueError:
             logger.debug("Could not register signal handlers (not main thread)")
 
-    # ── Thread locking (in-process) ──────────────────────────────────────
+    # ── 线程锁（进程内） ───────────────────────────────────────────────────
 
     def _get_thread_lock(self, thread_id: str) -> threading.Lock:
-        """Get or create an in-process lock for a specific thread_id."""
+        """获取或创建指定 thread_id 对应的进程内锁。"""
         with self._lock:
             if thread_id not in self._thread_locks:
                 self._thread_locks[thread_id] = threading.Lock()
             return self._thread_locks[thread_id]
 
-    # ── Core: acquire / get / release / shutdown ─────────────────────────
+    # ── 核心流程：acquire / get / release / shutdown ───────────────────────
 
     def acquire(self, thread_id: str | None = None) -> str:
-        """Acquire a sandbox environment and return its ID.
+        """
+        对同一 thread_id，该方法在多轮对话、多进程、
+        以及（共享存储条件下）多 Pod 场景中都返回同一 sandbox_id。
 
-        For the same thread_id, this method will return the same sandbox_id
-        across multiple turns, multiple processes, and (with shared storage)
-        multiple pods.
+        同时具备进程内与跨进程锁保护，线程安全。
 
-        Thread-safe with both in-process and cross-process locking.
+        参数：
+            thread_id: 可选线程 ID，用于线程级配置与复用。
 
-        Args:
-            thread_id: Optional thread ID for thread-specific configurations.
-
-        Returns:
-            The ID of the acquired sandbox environment.
+        返回：
+            获取到的沙箱环境 ID。
         """
         if thread_id:
             thread_lock = self._get_thread_lock(thread_id)
@@ -347,14 +342,14 @@ class AioSandboxProvider(SandboxProvider):
             return self._acquire_internal(thread_id)
 
     def _acquire_internal(self, thread_id: str | None) -> str:
-        """Internal sandbox acquisition with two-layer consistency.
-
-        Layer 1: In-process cache (fastest, covers same-process repeated access)
-        Layer 2: Backend discovery (covers containers started by other processes;
-                 sandbox_id is deterministic from thread_id so no shared state file
-                 is needed — any process can derive the same container name)
         """
-        # ── Layer 1: In-process cache (fast path) ──
+        第 1 层：进程内缓存（最快，覆盖同进程重复访问）
+        第 2 层：后端发现（覆盖由其他进程启动的容器；
+                 sandbox_id 从 thread_id 确定性生成，无需共享状态文件，
+                 任意进程都能推导同一容器名）
+
+        """
+        # ── 第 1 层：进程内缓存（快速路径） ──
         if thread_id:
             with self._lock:
                 if thread_id in self._thread_sandboxes:
@@ -366,10 +361,10 @@ class AioSandboxProvider(SandboxProvider):
                     else:
                         del self._thread_sandboxes[thread_id]
 
-        # Deterministic ID for thread-specific, random for anonymous
+        # 线程绑定场景使用确定性 ID，匿名场景使用随机 ID
         sandbox_id = self._deterministic_sandbox_id(thread_id) if thread_id else str(uuid.uuid4())[:8]
 
-        # ── Layer 1.5: Warm pool (container still running, no cold-start) ──
+        # ── 第 1.5 层：warm pool（容器仍运行，无冷启动） ──
         if thread_id:
             with self._lock:
                 if sandbox_id in self._warm_pool:
@@ -382,20 +377,19 @@ class AioSandboxProvider(SandboxProvider):
                     logger.info(f"Reclaimed warm-pool sandbox {sandbox_id} for thread {thread_id} at {info.sandbox_url}")
                     return sandbox_id
 
-        # ── Layer 2: Backend discovery + create (protected by cross-process lock) ──
-        # Use a file lock so that two processes racing to create the same sandbox
-        # for the same thread_id serialize here: the second process will discover
-        # the container started by the first instead of hitting a name-conflict.
+        # ── 第 2 层：后端发现 + 创建（受跨进程锁保护） ──
+        # 使用文件锁串行化同一 thread_id 的并发创建请求：
+        # 后到的进程会发现先到进程创建的容器，而不是直接命中容器名冲突。
         if thread_id:
             return self._discover_or_create_with_lock(thread_id, sandbox_id)
 
         return self._create_sandbox(thread_id, sandbox_id)
 
     def _discover_or_create_with_lock(self, thread_id: str, sandbox_id: str) -> str:
-        """Discover an existing sandbox or create a new one under a cross-process file lock.
+        """
+        文件锁可在多进程间串行化同一 thread_id 的沙箱创建，
+        从而避免容器名冲突。
 
-        The file lock serializes concurrent sandbox creation for the same thread_id
-        across multiple processes, preventing container-name conflicts.
         """
         paths = get_paths()
         paths.ensure_thread_dirs(thread_id)
@@ -404,8 +398,7 @@ class AioSandboxProvider(SandboxProvider):
         with open(lock_path, "a") as lock_file:
             try:
                 fcntl.flock(lock_file, fcntl.LOCK_EX)
-                # Re-check in-process caches under the file lock in case another
-                # thread in this process won the race while we were waiting.
+                # 在文件锁下再次检查进程内缓存，避免等待期间同进程其他线程已抢先创建。
                 with self._lock:
                     if thread_id in self._thread_sandboxes:
                         existing_id = self._thread_sandboxes[thread_id]
@@ -423,7 +416,7 @@ class AioSandboxProvider(SandboxProvider):
                         logger.info(f"Reclaimed warm-pool sandbox {sandbox_id} for thread {thread_id} (post-lock check)")
                         return sandbox_id
 
-                # Backend discovery: another process may have created the container.
+                # 后端发现：容器可能已由其他进程创建。
                 discovered = self._backend.discover(sandbox_id)
                 if discovered is not None:
                     sandbox = AioSandbox(id=discovered.sandbox_id, base_url=discovered.sandbox_url)
@@ -440,10 +433,9 @@ class AioSandboxProvider(SandboxProvider):
                 fcntl.flock(lock_file, fcntl.LOCK_UN)
 
     def _evict_oldest_warm(self) -> str | None:
-        """Destroy the oldest container in the warm pool to free capacity.
-
-        Returns:
-            The evicted sandbox_id, or None if warm pool is empty.
+        """
+        返回：
+            被驱逐的 sandbox_id；若 warm pool 为空则返回 None。
         """
         with self._lock:
             if not self._warm_pool:
@@ -460,22 +452,21 @@ class AioSandboxProvider(SandboxProvider):
         return oldest_id
 
     def _create_sandbox(self, thread_id: str | None, sandbox_id: str) -> str:
-        """Create a new sandbox via the backend.
+        """
+        参数：
+            thread_id: 可选线程 ID。
+            sandbox_id: 要使用的沙箱 ID。
 
-        Args:
-            thread_id: Optional thread ID.
-            sandbox_id: The sandbox ID to use.
+        返回：
+            sandbox_id。
 
-        Returns:
-            The sandbox_id.
-
-        Raises:
-            RuntimeError: If sandbox creation or readiness check fails.
+        异常：
+            RuntimeError: 创建失败或就绪检查失败时抛出。
         """
         extra_mounts = self._get_extra_mounts(thread_id)
 
-        # Enforce replicas: only warm-pool containers count toward eviction budget.
-        # Active sandboxes are in use by live threads and must not be forcibly stopped.
+        # 执行 replicas 约束：仅 warm-pool 容器计入可驱逐预算。
+        # 活跃沙箱正在服务线程，不能强制停止。
         replicas = self._config.get("replicas", DEFAULT_REPLICAS)
         with self._lock:
             total = len(self._sandboxes) + len(self._warm_pool)
@@ -484,14 +475,13 @@ class AioSandboxProvider(SandboxProvider):
             if evicted:
                 logger.info(f"Evicted warm-pool sandbox {evicted} to stay within replicas={replicas}")
             else:
-                # All slots are occupied by active sandboxes — proceed anyway and log.
-                # The replicas limit is a soft cap; we never forcibly stop a container
-                # that is actively serving a thread.
+                # 所有槽位均被活跃沙箱占用：继续创建并记录告警。
+                # 副本数上限（replicas）是软限制，不会强停正在服务线程的容器。
                 logger.warning(f"All {replicas} replica slots are in active use; creating sandbox {sandbox_id} beyond the soft limit")
 
         info = self._backend.create(thread_id, sandbox_id, extra_mounts=extra_mounts or None)
 
-        # Wait for sandbox to be ready
+        # 等待沙箱就绪
         if not wait_for_sandbox_ready(info.sandbox_url, timeout=60):
             self._backend.destroy(info)
             raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within timeout at {info.sandbox_url}")
@@ -508,13 +498,12 @@ class AioSandboxProvider(SandboxProvider):
         return sandbox_id
 
     def get(self, sandbox_id: str) -> Sandbox | None:
-        """Get a sandbox by ID. Updates last activity timestamp.
+        """
+        参数：
+            sandbox_id: 沙箱 ID。
 
-        Args:
-            sandbox_id: The ID of the sandbox.
-
-        Returns:
-            The sandbox instance if found, None otherwise.
+        返回：
+            找到则返回沙箱实例，否则返回 None。
         """
         with self._lock:
             sandbox = self._sandboxes.get(sandbox_id)
@@ -523,14 +512,13 @@ class AioSandboxProvider(SandboxProvider):
             return sandbox
 
     def release(self, sandbox_id: str) -> None:
-        """Release a sandbox from active use into the warm pool.
+        """
+        与 destroy 不同，release 不会停止容器。
+        容器会继续运行，可被同一线程在下一轮快速回收，避免冷启动。
+        容器仅在 replicas 约束触发驱逐或 shutdown 时停止。
 
-        The container is kept running so it can be reclaimed quickly by the same
-        thread on its next turn without a cold-start.  The container will only be
-        stopped when the replicas limit forces eviction or during shutdown.
-
-        Args:
-            sandbox_id: The ID of the sandbox to release.
+        参数：
+            sandbox_id: 要释放的沙箱 ID。
         """
         info = None
         thread_ids_to_remove: list[str] = []
@@ -542,20 +530,19 @@ class AioSandboxProvider(SandboxProvider):
             for tid in thread_ids_to_remove:
                 del self._thread_sandboxes[tid]
             self._last_activity.pop(sandbox_id, None)
-            # Park in warm pool — container keeps running
+            # 放入 warm pool，容器继续保持运行
             if info and sandbox_id not in self._warm_pool:
                 self._warm_pool[sandbox_id] = (info, time.time())
 
         logger.info(f"Released sandbox {sandbox_id} to warm pool (container still running)")
 
     def destroy(self, sandbox_id: str) -> None:
-        """Destroy a sandbox: stop the container and free all resources.
+        """
+        与 release 不同，destroy 会真正停止容器。
+        适用于显式清理、容量驱逐或 shutdown 场景。
 
-        Unlike release(), this actually stops the container.  Use this for
-        explicit cleanup, capacity-driven eviction, or shutdown.
-
-        Args:
-            sandbox_id: The ID of the sandbox to destroy.
+        参数：
+            sandbox_id: 要销毁的沙箱 ID。
         """
         info = None
         thread_ids_to_remove: list[str] = []
@@ -567,7 +554,7 @@ class AioSandboxProvider(SandboxProvider):
             for tid in thread_ids_to_remove:
                 del self._thread_sandboxes[tid]
             self._last_activity.pop(sandbox_id, None)
-            # Also pull from warm pool if it was parked there
+            # 若在 warm pool 中也有该实例，一并取出
             if info is None and sandbox_id in self._warm_pool:
                 info, _ = self._warm_pool.pop(sandbox_id)
             else:
@@ -578,7 +565,7 @@ class AioSandboxProvider(SandboxProvider):
             logger.info(f"Destroyed sandbox {sandbox_id}")
 
     def shutdown(self) -> None:
-        """Shutdown all sandboxes. Thread-safe and idempotent."""
+        """关闭全部沙箱。线程安全且幂等。"""
         with self._lock:
             if self._shutdown_called:
                 return
@@ -587,7 +574,7 @@ class AioSandboxProvider(SandboxProvider):
             warm_items = list(self._warm_pool.items())
             self._warm_pool.clear()
 
-        # Stop idle checker
+        # 停止空闲检查线程
         self._idle_checker_stop.set()
         if self._idle_checker_thread is not None and self._idle_checker_thread.is_alive():
             self._idle_checker_thread.join(timeout=5)

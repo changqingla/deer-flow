@@ -74,7 +74,7 @@ The script JSON file must follow this structure:
   "title": "The History of Artificial Intelligence",
   "locale": "en",
   "lines": [
-    {"speaker": "male", "paragraph": "Hello Deer! Welcome back to another episode."},
+    {"speaker": "male", "paragraph": "Hello Agent! Welcome back to another episode."},
     {"speaker": "female", "paragraph": "Hey everyone! Today we have an exciting topic to discuss."},
     {"speaker": "male", "paragraph": "That's right! We're going to talk about..."}
   ]
@@ -122,7 +122,7 @@ Step 1: Create script file `/mnt/user-data/workspace/ai-history-script.json`:
   "title": "The History of Artificial Intelligence",
   "locale": "en",
   "lines": [
-    {"speaker": "male", "paragraph": "Hello Deer! Welcome back to another fascinating episode. Today we're diving into something that's literally shaping our future - the history of artificial intelligence."},
+    {"speaker": "male", "paragraph": "Hello Agent! Welcome back to another fascinating episode. Today we're diving into something that's literally shaping our future - the history of artificial intelligence."},
     {"speaker": "female", "paragraph": "Oh, I love this topic! You know, AI feels so modern, but it actually has roots going back over seventy years."},
     {"speaker": "male", "paragraph": "Exactly! It all started back in the 1950s. The term artificial intelligence was actually coined by John McCarthy in 1956 at a famous conference at Dartmouth."},
     {"speaker": "female", "paragraph": "Wait, so they were already thinking about machines that could think back then? That's incredible!"},

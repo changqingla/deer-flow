@@ -18,55 +18,54 @@ def view_image_tool(
     image_path: str,
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> Command:
-    """Read an image file.
-
-    Use this tool to read an image file and make it available for display.
-
-    When to use the view_image tool:
-    - When you need to view an image file.
-
-    When NOT to use the view_image tool:
-    - For non-image files (use present_files instead)
-    - For multiple files at once (use present_files instead)
-
-    Args:
-        image_path: Absolute path to the image file. Common formats supported: jpg, jpeg, png, webp.
     """
-    # Replace virtual path with actual path
-    # /mnt/user-data/* paths are mapped to thread-specific directories
+    使用此工具读取图片文件，并使其可用于展示。
+
+    适用场景：
+    - 需要查看单张图片文件。
+
+    不适用场景：
+    - 非图片文件（请改用 present_files）
+    - 一次处理多文件（请改用 present_files）
+
+    参数：
+        image_path: 图片文件绝对路径。常见支持格式：jpg、jpeg、png、webp。
+    """
+    # 将虚拟路径替换为真实路径
+    # /mnt/user-data/* 会映射到线程对应目录
     thread_data = get_thread_data(runtime)
     actual_path = replace_virtual_path(image_path, thread_data)
 
-    # Validate that the path is absolute
+    # 校验路径必须为绝对路径
     path = Path(actual_path)
     if not path.is_absolute():
         return Command(
             update={"messages": [ToolMessage(f"Error: Path must be absolute, got: {image_path}", tool_call_id=tool_call_id)]},
         )
 
-    # Validate that the file exists
+    # 校验文件存在
     if not path.exists():
         return Command(
             update={"messages": [ToolMessage(f"Error: Image file not found: {image_path}", tool_call_id=tool_call_id)]},
         )
 
-    # Validate that it's a file (not a directory)
+    # 校验为文件而非目录
     if not path.is_file():
         return Command(
             update={"messages": [ToolMessage(f"Error: Path is not a file: {image_path}", tool_call_id=tool_call_id)]},
         )
 
-    # Validate image extension
+    # 校验图片扩展名
     valid_extensions = {".jpg", ".jpeg", ".png", ".webp"}
     if path.suffix.lower() not in valid_extensions:
         return Command(
             update={"messages": [ToolMessage(f"Error: Unsupported image format: {path.suffix}. Supported formats: {', '.join(valid_extensions)}", tool_call_id=tool_call_id)]},
         )
 
-    # Detect MIME type from file extension
+    # 根据扩展名推断 MIME 类型
     mime_type, _ = mimetypes.guess_type(actual_path)
     if mime_type is None:
-        # Fallback to default MIME types for common image formats
+        # 常见图片格式的默认 MIME 兜底
         extension_to_mime = {
             ".jpg": "image/jpeg",
             ".jpeg": "image/jpeg",
@@ -75,7 +74,7 @@ def view_image_tool(
         }
         mime_type = extension_to_mime.get(path.suffix.lower(), "application/octet-stream")
 
-    # Read image file and convert to base64
+    # 读取图片并编码为 base64
     try:
         with open(actual_path, "rb") as f:
             image_data = f.read()
@@ -85,8 +84,8 @@ def view_image_tool(
             update={"messages": [ToolMessage(f"Error reading image file: {str(e)}", tool_call_id=tool_call_id)]},
         )
 
-    # Update viewed_images in state
-    # The merge_viewed_images reducer will handle merging with existing images
+    # 更新 state 中的 viewed_images
+    # `merge_viewed_images` reducer 会与已有图片记录进行合并
     new_viewed_images = {image_path: {"base64": image_base64, "mime_type": mime_type}}
 
     return Command(

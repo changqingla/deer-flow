@@ -362,7 +362,7 @@ def test_cleanup_called_on_timed_out(monkeypatch):
 
 
 def test_cleanup_not_called_on_polling_safety_timeout(monkeypatch):
-    """Verify cleanup_background_task is NOT called on polling safety timeout.
+    """
 
     This prevents race conditions where the background task is still running
     but the polling loop gives up. The cleanup should happen later when the

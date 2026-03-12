@@ -1,0 +1,33 @@
+
+> deer-flow-frontend@0.1.0 dev /app/frontend
+> next dev --turbo
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.200.4:3000
+- Environments: .env
+
+✓ Starting...
+✓ Ready in 1355ms
+ GET / 200 in 2.5s (compile: 2.1s, render: 382ms)
+Error: ENOENT: no such file or directory, scandir '/app/frontend/src/app'
+    at ignore-listed frames {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'scandir',
+  path: '/app/frontend/src/app'
+}
+⨯ unhandledRejection: Error: ENOENT: no such file or directory, scandir '/app/frontend/src/app'
+    at ignore-listed frames {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'scandir',
+  path: '/app/frontend/src/app'
+}
+⨯ unhandledRejection:  Error: ENOENT: no such file or directory, scandir '/app/frontend/src/app'
+    at ignore-listed frames {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'scandir',
+  path: '/app/frontend/src/app'
+}

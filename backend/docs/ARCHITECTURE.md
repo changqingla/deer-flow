@@ -16,23 +16,23 @@ This document provides a comprehensive overview of the AgentFlow backend archite
 │  ┌────────────────────────────────────────────────────────────────────┐  │
 │  │  /api/langgraph/*  →  LangGraph Server (2024)                      │  │
 │  │  /api/*            →  Gateway API (8001)                           │  │
-│  │  /*                →  Frontend (3000)                               │  │
+│  │  /                 →  Redirect /docs                                 │  │
 │  └────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────┬────────────────────────────────────────┘
                                   │
           ┌───────────────────────┼───────────────────────┐
-          │                       │                       │
-          ▼                       ▼                       ▼
-┌─────────────────────┐ ┌─────────────────────┐ ┌─────────────────────┐
-│   LangGraph Server  │ │    Gateway API      │ │     Frontend        │
-│     (Port 2024)     │ │    (Port 8001)      │ │    (Port 3000)      │
-│                     │ │                     │ │                     │
-│  - Agent Runtime    │ │  - Models API       │ │  - Next.js App      │
-│  - Thread Mgmt      │ │  - MCP Config       │ │  - React UI         │
-│  - SSE Streaming    │ │  - Skills Mgmt      │ │  - Chat Interface   │
-│  - Checkpointing    │ │  - File Uploads     │ │                     │
-│                     │ │  - Artifacts        │ │                     │
-└─────────────────────┘ └─────────────────────┘ └─────────────────────┘
+          │                       │
+          ▼                       ▼
+┌─────────────────────┐ ┌─────────────────────┐
+│   LangGraph Server  │ │    Gateway API      │
+│     (Port 2024)     │ │    (Port 8001)      │
+│                     │ │                     │
+│  - Agent Runtime    │ │  - Models API       │
+│  - Thread Mgmt      │ │  - MCP Config       │
+│  - SSE Streaming    │ │  - Skills Mgmt      │
+│  - Checkpointing    │ │  - File Uploads     │
+│                     │ │  - Artifacts        │
+└─────────────────────┘ └─────────────────────┘
           │                       │
           │     ┌─────────────────┘
           │     │
@@ -130,7 +130,7 @@ class ThreadState(AgentState):
     # Core state from AgentState
     messages: list[BaseMessage]
 
-    # AgentFlow extensions
+    # Agent-flow extensions
     sandbox: dict             # Sandbox environment info
     artifacts: list[str]      # Generated file paths
     thread_data: dict         # {workspace, uploads, outputs} paths
@@ -385,14 +385,14 @@ SKILL.md Format:
 
 2. Gateway receives file
    - Validates file
-   - Stores in .deer-flow/threads/{thread_id}/user-data/uploads/
+   - Stores in .agent-flow/threads/{thread_id}/user-data/uploads/
    - If document: converts to Markdown via markitdown
 
 3. Returns response
    {
      "files": [{
        "filename": "doc.pdf",
-       "path": ".deer-flow/.../uploads/doc.pdf",
+       "path": ".agent-flow/.../uploads/doc.pdf",
        "virtual_path": "/mnt/user-data/uploads/doc.pdf",
        "artifact_url": "/api/threads/.../artifacts/mnt/.../doc.pdf"
      }]

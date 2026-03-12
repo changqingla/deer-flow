@@ -2,7 +2,7 @@ import os
 import re
 from pathlib import Path
 
-# Virtual path prefix seen by agents inside the sandbox
+# 代理（Agent）在沙箱内看到的虚拟路径前缀
 VIRTUAL_PATH_PREFIX = "/mnt/user-data"
 
 _SAFE_THREAD_ID_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
@@ -10,29 +10,29 @@ _SAFE_THREAD_ID_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
 
 class Paths:
     """
-    Centralized path configuration for AgentFlow application data.
+    AgentFlow 应用数据的集中式路径配置。
 
-    Directory layout (host side):
+    目录结构（宿主机侧）：
         {base_dir}/
         ├── memory.json
-        ├── USER.md          <-- global user profile (injected into all agents)
+        ├── USER.md          <-- 全局用户画像（注入到所有 Agent）
         ├── agents/
         │   └── {agent_name}/
         │       ├── config.yaml
-        │       ├── SOUL.md  <-- agent personality/identity (injected alongside lead prompt)
+        │       ├── SOUL.md  <-- Agent 个性/身份设定（与主提示一同注入）
         │       └── memory.json
         └── threads/
             └── {thread_id}/
-                └── user-data/         <-- mounted as /mnt/user-data/ inside sandbox
+                └── user-data/         <-- 在沙箱中挂载为 /mnt/user-data/
                     ├── workspace/     <-- /mnt/user-data/workspace/
                     ├── uploads/       <-- /mnt/user-data/uploads/
                     └── outputs/       <-- /mnt/user-data/outputs/
 
-    BaseDir resolution (in priority order):
-        1. Constructor argument `base_dir`
-        2. DEER_FLOW_HOME environment variable
-        3. Local dev fallback: cwd/.deer-flow  (when cwd is the backend/ dir)
-        4. Default: $HOME/.deer-flow
+    BaseDir 解析顺序（按优先级）：
+        1. 构造参数 `base_dir`
+        2. `DEER_FLOW_HOME` 环境变量
+        3. 本地开发回退：cwd/.deer-flow（当 cwd 位于 backend/ 目录时）
+        4. 默认：$HOME/.deer-flow
     """
 
     def __init__(self, base_dir: str | Path | None = None) -> None:
@@ -40,14 +40,13 @@ class Paths:
 
     @property
     def host_base_dir(self) -> Path:
-        """Host-visible base dir for Docker volume mount sources.
+        """用于 Docker 卷挂载源的宿主机可见基础目录。
 
-        When running inside Docker with a mounted Docker socket (DooD), the Docker
-        daemon runs on the host and resolves mount paths against the host filesystem.
-        Set DEER_FLOW_HOST_BASE_DIR to the host-side path that corresponds to this
-        container's base_dir so that sandbox container volume mounts work correctly.
+        当在 Docker 中运行且挂载了 Docker socket（DooD）时，Docker 守护进程运行在宿主机上，
+        会基于宿主机文件系统解析挂载路径。请将 `DEER_FLOW_HOST_BASE_DIR` 设置为与当前容器
+        `base_dir` 对应的宿主机路径，确保沙箱容器卷挂载生效。
 
-        Falls back to base_dir when the env var is not set (native/local execution).
+        若未设置该环境变量，则回退为 `base_dir`（本地/原生执行模式）。
         """
         if env := os.getenv("DEER_FLOW_HOST_BASE_DIR"):
             return Path(env)
@@ -55,7 +54,7 @@ class Paths:
 
     @property
     def base_dir(self) -> Path:
-        """Root directory for all application data."""
+        """所有应用数据的根目录。"""
         if self._base_dir is not None:
             return self._base_dir
 
@@ -70,37 +69,36 @@ class Paths:
 
     @property
     def memory_file(self) -> Path:
-        """Path to the persisted memory file: `{base_dir}/memory.json`."""
+        """持久化记忆文件路径：`{base_dir}/memory.json`。"""
         return self.base_dir / "memory.json"
 
     @property
     def user_md_file(self) -> Path:
-        """Path to the global user profile file: `{base_dir}/USER.md`."""
+        """全局用户画像文件路径：`{base_dir}/USER.md`。"""
         return self.base_dir / "USER.md"
 
     @property
     def agents_dir(self) -> Path:
-        """Root directory for all custom agents: `{base_dir}/agents/`."""
+        """所有自定义 Agent 的根目录：`{base_dir}/agents/`。"""
         return self.base_dir / "agents"
 
     def agent_dir(self, name: str) -> Path:
-        """Directory for a specific agent: `{base_dir}/agents/{name}/`."""
+        """指定 Agent 的目录：`{base_dir}/agents/{name}/`。"""
         return self.agents_dir / name.lower()
 
     def agent_memory_file(self, name: str) -> Path:
-        """Per-agent memory file: `{base_dir}/agents/{name}/memory.json`."""
+        """代理（Agent）级记忆文件：`{base_dir}/agents/{name}/memory.json`。"""
         return self.agent_dir(name) / "memory.json"
 
     def thread_dir(self, thread_id: str) -> Path:
         """
-        Host path for a thread's data: `{base_dir}/threads/{thread_id}/`
+        单个线程数据的宿主机路径：`{base_dir}/threads/{thread_id}/`
 
-        This directory contains a `user-data/` subdirectory that is mounted
-        as `/mnt/user-data/` inside the sandbox.
+        该目录包含 `user-data/` 子目录，并会在沙箱内挂载为 `/mnt/user-data/`。
 
-        Raises:
-            ValueError: If `thread_id` contains unsafe characters (path separators
-                        or `..`) that could cause directory traversal.
+        异常：
+            ValueError: 当 `thread_id` 包含不安全字符（路径分隔符或 `..`）时抛出，
+                        以防目录遍历。
         """
         if not _SAFE_THREAD_ID_RE.match(thread_id):
             raise ValueError(f"Invalid thread_id {thread_id!r}: only alphanumeric characters, hyphens, and underscores are allowed.")
@@ -108,44 +106,43 @@ class Paths:
 
     def sandbox_work_dir(self, thread_id: str) -> Path:
         """
-        Host path for the agent's workspace directory.
-        Host: `{base_dir}/threads/{thread_id}/user-data/workspace/`
-        Sandbox: `/mnt/user-data/workspace/`
+        Agent 工作目录的宿主机路径。
+        宿主机：`{base_dir}/threads/{thread_id}/user-data/workspace/`
+        沙箱：`/mnt/user-data/workspace/`
         """
         return self.thread_dir(thread_id) / "user-data" / "workspace"
 
     def sandbox_uploads_dir(self, thread_id: str) -> Path:
         """
-        Host path for user-uploaded files.
-        Host: `{base_dir}/threads/{thread_id}/user-data/uploads/`
-        Sandbox: `/mnt/user-data/uploads/`
+        用户上传文件的宿主机路径。
+        宿主机：`{base_dir}/threads/{thread_id}/user-data/uploads/`
+        沙箱：`/mnt/user-data/uploads/`
         """
         return self.thread_dir(thread_id) / "user-data" / "uploads"
 
     def sandbox_outputs_dir(self, thread_id: str) -> Path:
         """
-        Host path for agent-generated artifacts.
-        Host: `{base_dir}/threads/{thread_id}/user-data/outputs/`
-        Sandbox: `/mnt/user-data/outputs/`
+        Agent 生成产物的宿主机路径。
+        宿主机：`{base_dir}/threads/{thread_id}/user-data/outputs/`
+        沙箱：`/mnt/user-data/outputs/`
         """
         return self.thread_dir(thread_id) / "user-data" / "outputs"
 
     def sandbox_user_data_dir(self, thread_id: str) -> Path:
         """
-        Host path for the user-data root.
-        Host: `{base_dir}/threads/{thread_id}/user-data/`
-        Sandbox: `/mnt/user-data/`
+        user-data 根目录的宿主机路径。
+        宿主机：`{base_dir}/threads/{thread_id}/user-data/`
+        沙箱：`/mnt/user-data/`
         """
         return self.thread_dir(thread_id) / "user-data"
 
     def ensure_thread_dirs(self, thread_id: str) -> None:
-        """Create all standard sandbox directories for a thread.
+        """为线程创建标准沙箱目录。
 
-        Directories are created with mode 0o777 so that sandbox containers
-        (which may run as a different UID than the host backend process) can
-        write to the volume-mounted paths without "Permission denied" errors.
-        The explicit chmod() call is necessary because Path.mkdir(mode=...) is
-        subject to the process umask and may not yield the intended permissions.
+        目录会使用 `0o777` 权限创建，确保沙箱容器（其 UID 可能与宿主机后端进程不同）
+        可写入卷挂载路径，避免出现 “Permission denied”。
+        之所以显式调用 `chmod()`，是因为 `Path.mkdir(mode=...)` 受进程 umask 影响，
+        可能无法得到预期权限。
         """
         for d in [
             self.sandbox_work_dir(thread_id),
@@ -156,26 +153,25 @@ class Paths:
             d.chmod(0o777)
 
     def resolve_virtual_path(self, thread_id: str, virtual_path: str) -> Path:
-        """Resolve a sandbox virtual path to the actual host filesystem path.
+        """将沙箱虚拟路径解析为真实宿主机文件系统路径。
 
-        Args:
-            thread_id: The thread ID.
-            virtual_path: Virtual path as seen inside the sandbox, e.g.
-                          ``/mnt/user-data/outputs/report.pdf``.
-                          Leading slashes are stripped before matching.
+        参数：
+            thread_id: 线程 ID。
+            virtual_path: 沙箱内看到的虚拟路径，例如
+                          ``/mnt/user-data/outputs/report.pdf``。
+                          匹配前会先去除前导斜杠。
 
-        Returns:
-            The resolved absolute host filesystem path.
+        返回：
+            解析后的宿主机绝对路径。
 
-        Raises:
-            ValueError: If the path does not start with the expected virtual
-                        prefix or a path-traversal attempt is detected.
+        异常：
+            ValueError: 当路径不以期望虚拟前缀开头，或检测到路径遍历时抛出。
         """
         stripped = virtual_path.lstrip("/")
         prefix = VIRTUAL_PATH_PREFIX.lstrip("/")
 
-        # Require an exact segment-boundary match to avoid prefix confusion
-        # (e.g. reject paths like "mnt/user-dataX/...").
+        # 要求精确的路径段边界匹配，避免前缀混淆
+        # （例如拒绝 "mnt/user-dataX/..." 这类路径）。
         if stripped != prefix and not stripped.startswith(prefix + "/"):
             raise ValueError(f"Path must start with /{prefix}")
 
@@ -191,13 +187,13 @@ class Paths:
         return actual
 
 
-# ── Singleton ────────────────────────────────────────────────────────────
+# ── 单例 ─────────────────────────────────────────────────────────────────
 
 _paths: Paths | None = None
 
 
 def get_paths() -> Paths:
-    """Return the global Paths singleton (lazy-initialized)."""
+    """返回全局 Paths 单例（延迟初始化）。"""
     global _paths
     if _paths is None:
         _paths = Paths()
@@ -205,10 +201,10 @@ def get_paths() -> Paths:
 
 
 def resolve_path(path: str) -> Path:
-    """Resolve *path* to an absolute ``Path``.
+    """将 *path* 解析为绝对 ``Path``。
 
-    Relative paths are resolved relative to the application base directory.
-    Absolute paths are returned as-is (after normalisation).
+    相对路径会相对于应用基础目录解析；
+    绝对路径会在标准化后直接返回。
     """
     p = Path(path)
     if not p.is_absolute():

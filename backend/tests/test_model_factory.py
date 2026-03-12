@@ -104,8 +104,8 @@ def test_raises_when_model_not_found(monkeypatch):
 
 
 def test_thinking_enabled_raises_when_not_supported_but_when_thinking_enabled_is_set(monkeypatch):
-    """supports_thinking guard fires only when when_thinking_enabled is configured —
-    the factory uses that as the signal that the caller explicitly expects thinking to work."""
+    """
+    """
     wte = {"thinking": {"type": "enabled", "budget_tokens": 5000}}
     cfg = _make_app_config([_make_model("no-think", supports_thinking=False, when_thinking_enabled=wte)])
     _patch_factory(monkeypatch, cfg)
@@ -115,9 +115,9 @@ def test_thinking_enabled_raises_when_not_supported_but_when_thinking_enabled_is
 
 
 def test_thinking_enabled_raises_for_empty_when_thinking_enabled_explicitly_set(monkeypatch):
-    """supports_thinking guard fires when when_thinking_enabled is set to an empty dict —
+    """
     the user explicitly provided the section, so the guard must still fire even though
-    effective_wte would be falsy."""
+    """
     cfg = _make_app_config([_make_model("no-think-empty", supports_thinking=False, when_thinking_enabled={})])
     _patch_factory(monkeypatch, cfg)
 
@@ -143,8 +143,8 @@ def test_thinking_enabled_merges_when_thinking_enabled_settings(monkeypatch):
 
 
 def test_thinking_disabled_openai_gateway_format(monkeypatch):
-    """When thinking is configured via extra_body (OpenAI-compatible gateway),
-    disabling must inject extra_body.thinking.type=disabled and reasoning_effort=minimal."""
+    """
+    """
     wte = {"extra_body": {"thinking": {"type": "enabled", "budget_tokens": 10000}}}
     cfg = _make_app_config(
         [
@@ -175,8 +175,8 @@ def test_thinking_disabled_openai_gateway_format(monkeypatch):
 
 
 def test_thinking_disabled_langchain_anthropic_format(monkeypatch):
-    """When thinking is configured as a direct param (langchain_anthropic),
-    disabling must inject thinking.type=disabled WITHOUT touching extra_body or reasoning_effort."""
+    """
+    """
     wte = {"thinking": {"type": "enabled", "budget_tokens": 8000}}
     cfg = _make_app_config(
         [

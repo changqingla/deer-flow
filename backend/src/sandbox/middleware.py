@@ -12,32 +12,32 @@ logger = logging.getLogger(__name__)
 
 
 class SandboxMiddlewareState(AgentState):
-    """Compatible with the `ThreadState` schema."""
+    """与 `ThreadState` 结构兼容。"""
 
     sandbox: NotRequired[SandboxState | None]
     thread_data: NotRequired[ThreadDataState | None]
 
 
 class SandboxMiddleware(AgentMiddleware[SandboxMiddlewareState]):
-    """Create a sandbox environment and assign it to an agent.
+    """
+    生命周期管理：
+    - 当 `lazy_init=True`（默认）时：首次工具调用才获取沙箱
+    - 当 `lazy_init=False` 时：首次 Agent 调用前（before_agent）即获取沙箱
+    - 同一线程内可复用同一个沙箱，跨多轮对话不重复创建
+    - 每次 Agent 调用后不会立即释放沙箱，避免频繁重建开销
+    - 最终清理在应用关闭时通过 `SandboxProvider.shutdown()` 完成
 
-    Lifecycle Management:
-    - With lazy_init=True (default): Sandbox is acquired on first tool call
-    - With lazy_init=False: Sandbox is acquired on first agent invocation (before_agent)
-    - Sandbox is reused across multiple turns within the same thread
-    - Sandbox is NOT released after each agent call to avoid wasteful recreation
-    - Cleanup happens at application shutdown via SandboxProvider.shutdown()
     """
 
     state_schema = SandboxMiddlewareState
 
     def __init__(self, lazy_init: bool = True):
-        """Initialize sandbox middleware.
+        """
+        参数：
+            lazy_init: 若为 True，则延迟到首次工具调用再获取沙箱；
+                      若为 False，则在 before_agent() 中提前获取。
+                      默认 True，以获得更优性能。
 
-        Args:
-            lazy_init: If True, defer sandbox acquisition until first tool call.
-                      If False, acquire sandbox eagerly in before_agent().
-                      Default is True for optimal performance.
         """
         super().__init__()
         self._lazy_init = lazy_init
@@ -50,11 +50,11 @@ class SandboxMiddleware(AgentMiddleware[SandboxMiddlewareState]):
 
     @override
     def before_agent(self, state: SandboxMiddlewareState, runtime: Runtime) -> dict | None:
-        # Skip acquisition if lazy_init is enabled
+        # 开启 lazy_init 时跳过预先获取
         if self._lazy_init:
             return super().before_agent(state, runtime)
 
-        # Eager initialization (original behavior)
+        # 提前初始化（原有行为）
         if "sandbox" not in state or state["sandbox"] is None:
             thread_id = runtime.context["thread_id"]
             sandbox_id = self._acquire_sandbox(thread_id)
@@ -77,5 +77,5 @@ class SandboxMiddleware(AgentMiddleware[SandboxMiddlewareState]):
             get_sandbox_provider().release(sandbox_id)
             return None
 
-        # No sandbox to release
+        # 无可释放沙箱
         return super().after_agent(state, runtime)

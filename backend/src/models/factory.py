@@ -9,13 +9,13 @@ logger = logging.getLogger(__name__)
 
 
 def create_chat_model(name: str | None = None, thinking_enabled: bool = False, **kwargs) -> BaseChatModel:
-    """Create a chat model instance from the config.
+    """创建聊天模型实例。
 
-    Args:
-        name: The name of the model to create. If None, the first model in the config will be used.
+    参数：
+        name: 待创建模型名；为 None 时使用配置中的第一个模型。
 
-    Returns:
-        A chat model instance.
+    返回：
+        聊天模型实例。
     """
     config = get_app_config()
     if name is None:
@@ -38,8 +38,8 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
             "supports_vision",
         },
     )
-    # Compute effective when_thinking_enabled by merging in the `thinking` shortcut field.
-    # The `thinking` shortcut is equivalent to setting when_thinking_enabled["thinking"].
+    # 计算最终生效的 when_thinking_enabled，合并 `thinking` 快捷字段。
+    # `thinking` 等价于设置 when_thinking_enabled["thinking"]。
     has_thinking_settings = (model_config.when_thinking_enabled is not None) or (model_config.thinking is not None)
     effective_wte: dict = dict(model_config.when_thinking_enabled) if model_config.when_thinking_enabled else {}
     if model_config.thinking is not None:
@@ -52,11 +52,11 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
             model_settings_from_config.update(effective_wte)
     if not thinking_enabled and has_thinking_settings:
         if effective_wte.get("extra_body", {}).get("thinking", {}).get("type"):
-            # OpenAI-compatible gateway: thinking is nested under extra_body
+            # 针对 OpenAI 兼容网关：thinking 位于 extra_body 下
             kwargs.update({"extra_body": {"thinking": {"type": "disabled"}}})
             kwargs.update({"reasoning_effort": "minimal"})
         elif effective_wte.get("thinking", {}).get("type"):
-            # Native langchain_anthropic: thinking is a direct constructor parameter
+            # 原生 langchain_anthropic：thinking 是构造参数
             kwargs.update({"thinking": {"type": "disabled"}})
     if not model_config.supports_reasoning_effort and "reasoning_effort" in kwargs:
         del kwargs["reasoning_effort"]

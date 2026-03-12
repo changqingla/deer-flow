@@ -1,4 +1,4 @@
-"""Tests for upload-event filtering in the memory pipeline.
+"""
 
 Covers two functions introduced to prevent ephemeral file-upload context from
 persisting in long-term memory:
@@ -39,8 +39,8 @@ class TestFilterMessagesForMemory:
     # --- upload-only turns are excluded ---
 
     def test_upload_only_turn_is_excluded(self):
-        """A human turn containing only <uploaded_files> (no real question)
-        and its paired AI response must both be dropped."""
+        """
+        """
         msgs = [
             _human(_UPLOAD_BLOCK),
             _ai("I have read the file. It says: Hello."),
@@ -49,12 +49,12 @@ class TestFilterMessagesForMemory:
         assert result == []
 
     def test_upload_with_real_question_preserves_question(self):
-        """When the user asks a question alongside an upload, the question text
-        must reach the memory queue (upload block stripped, AI response kept)."""
+        """
+        """
         combined = _UPLOAD_BLOCK + "\n\nWhat does this file contain?"
         msgs = [
             _human(combined),
-            _ai("The file contains: Hello AgentFlow."),
+            _ai("The file contains: Hello Agent-flow."),
         ]
         result = _filter_messages_for_memory(msgs)
 
@@ -62,7 +62,7 @@ class TestFilterMessagesForMemory:
         human_result = result[0]
         assert "<uploaded_files>" not in human_result.content
         assert "What does this file contain?" in human_result.content
-        assert result[1].content == "The file contains: Hello AgentFlow."
+        assert result[1].content == "The file contains: Hello Agent-flow."
 
     # --- non-upload turns pass through unchanged ---
 

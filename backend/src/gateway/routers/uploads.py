@@ -1,4 +1,4 @@
-"""Upload router for handling file uploads."""
+"""处理文件上传的路由模块。"""
 
 import asyncio
 import logging
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/threads/{thread_id}/uploads", tags=["uploads"])
 
-# File extensions that should be converted to markdown
+# 需要转换为 Markdown 的文件扩展名
 CONVERTIBLE_EXTENSIONS = {
     ".pdf",
     ".ppt",
@@ -28,7 +28,7 @@ CONVERTIBLE_EXTENSIONS = {
 
 
 class UploadedFileInfo(BaseModel):
-    """Metadata for an uploaded file."""
+    """上传文件元数据。"""
 
     filename: str
     size: int
@@ -44,7 +44,7 @@ class UploadedFileInfo(BaseModel):
 
 
 class UploadResponse(BaseModel):
-    """Response model for file upload."""
+    """文件上传响应模型。"""
 
     success: bool
     files: list[UploadedFileInfo]
@@ -52,27 +52,27 @@ class UploadResponse(BaseModel):
 
 
 class ListUploadsResponse(BaseModel):
-    """Response model for listing uploaded files."""
+    """上传文件列表响应模型。"""
 
     files: list[UploadedFileInfo]
     count: int
 
 
 class DeleteUploadResponse(BaseModel):
-    """Response model for delete uploaded file operation."""
+    """删除上传文件操作响应模型。"""
 
     success: bool
     message: str
 
 
 def get_uploads_dir(thread_id: str) -> Path:
-    """Get the uploads directory for a thread.
+    """获取线程 uploads 目录（不存在则创建）。
 
-    Args:
-        thread_id: The thread ID.
+    参数：
+        thread_id: 线程 ID。
 
-    Returns:
-        Path to the uploads directory.
+    返回：
+        uploads 目录路径。
     """
     try:
         base_dir = get_paths().sandbox_uploads_dir(thread_id)
@@ -83,13 +83,13 @@ def get_uploads_dir(thread_id: str) -> Path:
 
 
 def _convert_file_to_markdown_sync(file_path: Path) -> Path | None:
-    """Convert a file to markdown using markitdown.
+    """同步将文件转换为 Markdown。
 
-    Args:
-        file_path: Path to the file to convert.
+    参数：
+        file_path: 待转换文件路径。
 
-    Returns:
-        Path to the markdown file if conversion was successful, None otherwise.
+    返回：
+        转换成功返回 Markdown 文件路径，否则返回 None。
     """
     try:
         from markitdown import MarkItDown
@@ -97,7 +97,7 @@ def _convert_file_to_markdown_sync(file_path: Path) -> Path | None:
         md = MarkItDown()
         result = md.convert(str(file_path))
 
-        # Save as .md file with same name
+        # 以同名 `.md` 文件落盘
         md_path = file_path.with_suffix(".md")
         md_path.write_text(result.text_content, encoding="utf-8")
 
@@ -109,12 +109,12 @@ def _convert_file_to_markdown_sync(file_path: Path) -> Path | None:
 
 
 async def convert_file_to_markdown(file_path: Path) -> Path | None:
-    """Convert a file to markdown in a worker thread."""
+    """在线程池中异步执行 Markdown 转换。"""
     return await asyncio.to_thread(_convert_file_to_markdown_sync, file_path)
 
 
 def _normalize_filename(filename: str) -> str | None:
-    """Normalize and validate a filename."""
+    """规范化并校验文件名。"""
     safe_filename = Path(filename).name
     if not safe_filename or safe_filename in {".", ".."}:
         return None
@@ -128,17 +128,17 @@ async def upload_files(
     thread_id: str,
     files: list[UploadFile] = File(...),
 ) -> UploadResponse:
-    """Upload multiple files to a thread's uploads directory.
+    """上传文件到线程目录，并按需转换为 Markdown。
 
-    For PDF, PPT, Excel, and Word files, they will be converted to markdown using markitdown.
-    All files (original and converted) are saved to /mnt/user-data/uploads.
+    PDF/PPT/Excel/Word 文件会通过 markitdown 转换为 Markdown。
+    原文件与转换文件都会保存到 `/mnt/user-data/uploads`。
 
-    Args:
-        thread_id: The thread ID to upload files to.
-        files: List of files to upload.
+    参数：
+        thread_id: 目标线程 ID。
+        files: 待上传文件列表。
 
-    Returns:
-        Upload response with success status and file information.
+    返回：
+        包含成功状态与文件信息的上传响应。
     """
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
@@ -171,26 +171,26 @@ async def upload_files(
                 file_path = uploads_dir / safe_filename
                 file_path.write_bytes(content)
 
-                # Build relative path from backend root
+                # 组装相对 backend 根目录的路径
                 relative_path = str(paths.sandbox_uploads_dir(thread_id) / safe_filename)
                 virtual_path = f"{VIRTUAL_PATH_PREFIX}/uploads/{safe_filename}"
 
-                # Keep local sandbox source of truth in thread-scoped host storage.
-                # For non-local sandboxes, also sync to virtual path for runtime visibility.
+                # 本地沙箱以线程宿主目录为唯一数据源；
+                # 非本地沙箱需额外同步到虚拟路径，确保运行时可见。
                 if sandbox_id != "local":
                     non_local_sandbox.update_file(virtual_path, content)
 
                 file_info: dict[str, Any] = {
                     "filename": safe_filename,
                     "size": len(content),
-                    "path": relative_path,  # Actual filesystem path (relative to backend/)
-                    "virtual_path": virtual_path,  # Path for Agent in sandbox
-                    "artifact_url": f"/api/threads/{thread_id}/artifacts/mnt/user-data/uploads/{safe_filename}",  # HTTP URL
+                    "path": relative_path,  # 实际文件系统路径（相对 backend/）
+                    "virtual_path": virtual_path,  # Agent 在沙箱中访问的路径
+                    "artifact_url": f"/api/threads/{thread_id}/artifacts/mnt/user-data/uploads/{safe_filename}",  # HTTP 访问地址
                 }
 
                 logger.info(f"Saved file: {safe_filename} ({len(content)} bytes) to {relative_path}")
 
-                # Check if file should be converted to markdown
+                # 检查文件是否需要转换为 Markdown
                 file_ext = file_path.suffix.lower()
                 if file_ext in CONVERTIBLE_EXTENSIONS:
                     md_path = await convert_file_to_markdown(file_path)
@@ -229,13 +229,13 @@ async def upload_files(
 
 @router.get("/list", response_model=ListUploadsResponse)
 async def list_uploaded_files(thread_id: str) -> ListUploadsResponse:
-    """List all files in a thread's uploads directory.
+    """列出线程 uploads 目录中的文件。
 
-    Args:
-        thread_id: The thread ID to list files for.
+    参数：
+        thread_id: 要查询的线程 ID。
 
-    Returns:
-        Dictionary containing list of files with their metadata.
+    返回：
+        包含文件元数据列表的响应对象。
     """
     uploads_dir = get_uploads_dir(thread_id)
 
@@ -251,9 +251,9 @@ async def list_uploaded_files(thread_id: str) -> ListUploadsResponse:
                 {
                     "filename": file_path.name,
                     "size": stat.st_size,
-                    "path": relative_path,  # Actual filesystem path
-                    "virtual_path": f"{VIRTUAL_PATH_PREFIX}/uploads/{file_path.name}",  # Path for Agent in sandbox
-                    "artifact_url": f"/api/threads/{thread_id}/artifacts/mnt/user-data/uploads/{file_path.name}",  # HTTP URL
+                    "path": relative_path,  # 实际文件系统路径
+                    "virtual_path": f"{VIRTUAL_PATH_PREFIX}/uploads/{file_path.name}",  # Agent 在沙箱中访问的路径
+                    "artifact_url": f"/api/threads/{thread_id}/artifacts/mnt/user-data/uploads/{file_path.name}",  # HTTP 访问地址
                     "extension": file_path.suffix,
                     "modified": stat.st_mtime,
                 }
@@ -264,14 +264,14 @@ async def list_uploaded_files(thread_id: str) -> ListUploadsResponse:
 
 @router.delete("/{filename}", response_model=DeleteUploadResponse)
 async def delete_uploaded_file(thread_id: str, filename: str) -> DeleteUploadResponse:
-    """Delete a file from a thread's uploads directory.
+    """删除线程 uploads 目录中的指定文件。
 
-    Args:
-        thread_id: The thread ID.
-        filename: The filename to delete.
+    参数：
+        thread_id: 线程 ID。
+        filename: 待删除文件名。
 
-    Returns:
-        Success message.
+    返回：
+        删除结果消息。
     """
     uploads_dir = get_uploads_dir(thread_id)
     safe_filename = _normalize_filename(filename)
@@ -283,7 +283,7 @@ async def delete_uploaded_file(thread_id: str, filename: str) -> DeleteUploadRes
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"File not found: {safe_filename}")
 
-    # Security check: ensure the path is within the uploads directory
+    # 安全校验：确保路径位于 uploads 目录内
     try:
         file_path.resolve().relative_to(uploads_dir.resolve())
     except ValueError:
@@ -296,7 +296,7 @@ async def delete_uploaded_file(thread_id: str, filename: str) -> DeleteUploadRes
         sandbox_id = sandbox_provider.acquire(thread_id)
         sandbox = sandbox_provider.get(sandbox_id)
 
-        # Keep non-local sandbox storage in sync.
+        # 同步非本地沙箱中的文件状态
         if sandbox_id != "local":
             if sandbox is None:
                 raise HTTPException(status_code=500, detail=f"Sandbox not found: {sandbox_id}")

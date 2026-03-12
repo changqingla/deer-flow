@@ -1,4 +1,4 @@
-"""Bash command execution subagent configuration."""
+"""用于 Bash 命令执行的子代理（Subagent）配置。"""
 
 from src.subagents.config import SubagentConfig
 

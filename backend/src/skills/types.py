@@ -4,32 +4,32 @@ from pathlib import Path
 
 @dataclass
 class Skill:
-    """Represents a skill with its metadata and file path"""
+    """表示一个技能对象，包含元数据与文件路径。"""
 
     name: str
     description: str
     license: str | None
     skill_dir: Path
     skill_file: Path
-    relative_path: Path  # Relative path from category root to skill directory
-    category: str  # 'public' or 'custom'
-    enabled: bool = False  # Whether this skill is enabled
+    relative_path: Path  # 从分类根目录到技能目录的相对路径
+    category: str  # 技能分类：`public` 或 `custom`
+    enabled: bool = False  # 该技能是否启用
 
     @property
     def skill_path(self) -> str:
-        """Returns the relative path from the category root (skills/{category}) to this skill's directory"""
+        """返回从分类根目录（skills/{category}）到技能目录的相对路径。"""
         path = self.relative_path.as_posix()
         return "" if path == "." else path
 
     def get_container_path(self, container_base_path: str = "/mnt/skills") -> str:
         """
-        Get the full path to this skill in the container.
+        获取该技能在容器内的完整目录路径。
 
-        Args:
-            container_base_path: Base path where skills are mounted in the container
+        参数：
+            container_base_path: 技能在容器中挂载的基础路径。
 
-        Returns:
-            Full container path to the skill directory
+        返回：
+            技能目录在容器中的完整路径。
         """
         category_base = f"{container_base_path}/{self.category}"
         skill_path = self.skill_path
@@ -39,13 +39,13 @@ class Skill:
 
     def get_container_file_path(self, container_base_path: str = "/mnt/skills") -> str:
         """
-        Get the full path to this skill's main file (SKILL.md) in the container.
+        获取该技能主文件（SKILL.md）在容器内的完整路径。
 
-        Args:
-            container_base_path: Base path where skills are mounted in the container
+        参数：
+            container_base_path: 技能在容器中挂载的基础路径。
 
-        Returns:
-            Full container path to the skill's SKILL.md file
+        返回：
+            技能 SKILL.md 在容器中的完整路径。
         """
         return f"{self.get_container_path(container_base_path)}/SKILL.md"
 

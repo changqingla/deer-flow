@@ -1,4 +1,4 @@
-"""Gateway router for IM channel management."""
+"""用于 IM 通道管理的 Gateway 路由。"""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ class ChannelRestartResponse(BaseModel):
 
 @router.get("/", response_model=ChannelStatusResponse)
 async def get_channels_status() -> ChannelStatusResponse:
-    """Get the status of all IM channels."""
+    """获取所有 IM 通道状态。"""
     from src.channels.service import get_channel_service
 
     service = get_channel_service()
@@ -36,7 +36,7 @@ async def get_channels_status() -> ChannelStatusResponse:
 
 @router.post("/{name}/restart", response_model=ChannelRestartResponse)
 async def restart_channel(name: str) -> ChannelRestartResponse:
-    """Restart a specific IM channel."""
+    """重启指定 IM 通道。"""
     from src.channels.service import get_channel_service
 
     service = get_channel_service()

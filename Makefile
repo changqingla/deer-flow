@@ -1,14 +1,14 @@
-# AgentFlow - Unified Development Environment
+# AgentFlow -统一开发环境
 
-.PHONY: help config check install dev stop clean docker-init docker-start docker-stop docker-logs docker-logs-frontend docker-logs-gateway
+.PHONY: help config check install dev stop clean docker-init docker-start docker-stop docker-logs docker-logs-gateway docker-logs-langgraph
 
 help:
-	@echo "AgentFlow Development Commands:"
+	@echo "Agent-flow Development Commands:"
 	@echo "  make config          - Generate local config files (aborts if config already exists)"
 	@echo "  make check           - Check if all required tools are installed"
-	@echo "  make install         - Install all dependencies (frontend + backend)"
+	@echo "  make install         - Install backend dependencies"
 	@echo "  make setup-sandbox   - Pre-pull sandbox container image (recommended)"
-	@echo "  make dev             - Start all services (frontend + backend + nginx on localhost:2026)"
+	@echo "  make dev             - Start backend services (+ nginx on localhost:2026)"
 	@echo "  make stop            - Stop all running services"
 	@echo "  make clean           - Clean up processes and temporary files"
 	@echo ""
@@ -17,8 +17,8 @@ help:
 	@echo "  make docker-start    - Start Docker services (mode-aware from config.yaml, 0.0.0.0:2026)"
 	@echo "  make docker-stop     - Stop Docker development services"
 	@echo "  make docker-logs     - View Docker development logs"
-	@echo "  make docker-logs-frontend - View Docker frontend logs"
 	@echo "  make docker-logs-gateway - View Docker gateway logs"
+	@echo "  make docker-logs-langgraph - View Docker langgraph logs"
 
 config:
 	@if [ -f config.yaml ] || [ -f config.yml ] || [ -f configure.yml ]; then \
@@ -27,43 +27,14 @@ config:
 	fi
 	@cp config.example.yaml config.yaml
 	@test -f .env || cp .env.example .env
-	@test -f frontend/.env || cp frontend/.env.example frontend/.env
 
-# Check required tools
+
 check:
 	@echo "=========================================="
 	@echo "  Checking Required Dependencies"
 	@echo "=========================================="
 	@echo ""
 	@FAILED=0; \
-	echo "Checking Node.js..."; \
-	if command -v node >/dev/null 2>&1; then \
-		NODE_VERSION=$$(node -v | sed 's/v//'); \
-		NODE_MAJOR=$$(echo $$NODE_VERSION | cut -d. -f1); \
-		if [ $$NODE_MAJOR -ge 22 ]; then \
-			echo "  ✓ Node.js $$NODE_VERSION (>= 22 required)"; \
-		else \
-			echo "  ✗ Node.js $$NODE_VERSION found, but version 22+ is required"; \
-			echo "    Install from: https://nodejs.org/"; \
-			FAILED=1; \
-		fi; \
-	else \
-		echo "  ✗ Node.js not found (version 22+ required)"; \
-		echo "    Install from: https://nodejs.org/"; \
-		FAILED=1; \
-	fi; \
-	echo ""; \
-	echo "Checking pnpm..."; \
-	if command -v pnpm >/dev/null 2>&1; then \
-		PNPM_VERSION=$$(pnpm -v); \
-		echo "  ✓ pnpm $$PNPM_VERSION"; \
-	else \
-		echo "  ✗ pnpm not found"; \
-		echo "    Install: npm install -g pnpm"; \
-		echo "    Or visit: https://pnpm.io/installation"; \
-		FAILED=1; \
-	fi; \
-	echo ""; \
 	echo "Checking uv..."; \
 	if command -v uv >/dev/null 2>&1; then \
 		UV_VERSION=$$(uv --version | awk '{print $$2}'); \
@@ -104,13 +75,11 @@ check:
 		exit 1; \
 	fi
 
-# Install all dependencies
+# echo "正在检查nginx...";\
 install:
 	@echo "Installing backend dependencies..."
 	@cd backend && uv sync
-	@echo "Installing frontend dependencies..."
-	@cd frontend && pnpm install
-	@echo "✓ All dependencies installed"
+	@echo "✓ Backend dependencies installed"
 	@echo ""
 	@echo "=========================================="
 	@echo "  Optional: Pre-pull Sandbox Image"
@@ -120,7 +89,7 @@ install:
 	@echo "  make setup-sandbox"
 	@echo ""
 
-# Pre-pull sandbox Docker image (optional but recommended)
+# echo "✓所有依赖项已安装！";\
 setup-sandbox:
 	@echo "=========================================="
 	@echo "  Pre-pulling Sandbox Container Image"
@@ -149,51 +118,50 @@ setup-sandbox:
 		exit 1; \
 	fi
 
-# Start all services
+# 回声
 dev:
 	@./scripts/start.sh
 
-# Stop all services
+# 回声
 stop:
 	@echo "Stopping all services..."
 	@-pkill -f "langgraph dev" 2>/dev/null || true
 	@-pkill -f "uvicorn src.gateway.app:app" 2>/dev/null || true
-	@-pkill -f "next dev" 2>/dev/null || true
 	@-nginx -c $(PWD)/docker/nginx/nginx.local.conf -p $(PWD) -s quit 2>/dev/null || true
 	@sleep 1
 	@-pkill -9 nginx 2>/dev/null || true
 	@echo "Cleaning up sandbox containers..."
-	@-./scripts/cleanup-containers.sh deer-flow-sandbox 2>/dev/null || true
+	@-./scripts/cleanup-containers.sh agent-flow-sandbox 2>/dev/null || true
 	@echo "✓ All services stopped"
 
-# Clean up
+# if command -v container >/dev/null 2 > & 1 & & ["$ $ (uname)" = "Darwin"]; then\
 clean: stop
 	@echo "Cleaning up..."
 	@-rm -rf logs/*.log 2>/dev/null || true
 	@echo "✓ Cleanup complete"
 
 # ==========================================
-# Docker Development Commands
+# 回声
 # ==========================================
 
-# Initialize Docker containers and install dependencies
+# echo "Docker✗和Apple Container都不可用";\
 docker-init:
 	@./scripts/docker.sh init
 
-# Start Docker development environment
+
 docker-start:
 	@./scripts/docker.sh start
 
-# Stop Docker development environment
+
 docker-stop:
 	@./scripts/docker.sh stop
 
-# View Docker development logs
+# @ -pkill -f "langgraph dev" 2 >/dev/null || true
 docker-logs:
 	@./scripts/docker.sh logs
 
-# View Docker development logs
-docker-logs-frontend:
-	@./scripts/docker.sh logs --frontend
+# @ sleep 1
 docker-logs-gateway:
 	@./scripts/docker.sh logs --gateway
+docker-logs-langgraph:
+	@./scripts/docker.sh logs --langgraph

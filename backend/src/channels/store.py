@@ -1,4 +1,4 @@
-"""ChannelStore — persists IM chat-to-AgentFlow thread mappings."""
+"""通道存储（ChannelStore）：持久化 IM 会话到 AgentFlow 线程的映射。"""
 
 from __future__ import annotations
 
@@ -14,9 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class ChannelStore:
-    """JSON-file-backed store that maps IM conversations to AgentFlow threads.
-
-    Data layout (on disk)::
+    """
+    磁盘数据结构::
 
         {
             "<channel_name>:<chat_id>": {
@@ -28,9 +27,8 @@ class ChannelStore:
             ...
         }
 
-    The store is intentionally simple — a single JSON file that is atomically
-    rewritten on every mutation. For production workloads with high concurrency,
-    this can be swapped for a proper database backend.
+    该存储设计保持简单：使用单个 JSON 文件，并在每次变更时以原子方式重写。
+    若生产环境并发较高，可替换为数据库后端。
     """
 
     def __init__(self, path: str | Path | None = None) -> None:
@@ -43,7 +41,7 @@ class ChannelStore:
         self._data: dict[str, dict[str, Any]] = self._load()
         self._lock = threading.Lock()
 
-    # -- persistence -------------------------------------------------------
+    # -- 持久化 -------------------------------------------------------------
 
     def _load(self) -> dict[str, dict[str, Any]]:
         if self._path.exists():
@@ -69,7 +67,7 @@ class ChannelStore:
             Path(fd.name).unlink(missing_ok=True)
             raise
 
-    # -- key helpers -------------------------------------------------------
+    # -- 键辅助 -------------------------------------------------------------
 
     @staticmethod
     def _key(channel_name: str, chat_id: str, topic_id: str | None = None) -> str:
@@ -77,10 +75,10 @@ class ChannelStore:
             return f"{channel_name}:{chat_id}:{topic_id}"
         return f"{channel_name}:{chat_id}"
 
-    # -- public API --------------------------------------------------------
+    # -- 对外 API -----------------------------------------------------------
 
     def get_thread_id(self, channel_name: str, chat_id: str, topic_id: str | None = None) -> str | None:
-        """Look up the AgentFlow thread_id for a given IM conversation/topic."""
+        """查询指定 IM 会话/主题对应的 AgentFlow thread_id。"""
         entry = self._data.get(self._key(channel_name, chat_id, topic_id))
         return entry["thread_id"] if entry else None
 
@@ -93,7 +91,7 @@ class ChannelStore:
         topic_id: str | None = None,
         user_id: str = "",
     ) -> None:
-        """Create or update the mapping for an IM conversation/topic."""
+        """为 IM 会话/主题创建或更新映射。"""
         with self._lock:
             key = self._key(channel_name, chat_id, topic_id)
             now = time.time()
@@ -107,16 +105,15 @@ class ChannelStore:
             self._save()
 
     def remove(self, channel_name: str, chat_id: str, topic_id: str | None = None) -> bool:
-        """Remove a mapping.
+        """
+        若提供 ``topic_id``，仅删除该会话/主题映射。
+        若省略 ``topic_id``，则删除所有键以
+        ``"<channel_name>:<chat_id>"`` 开头的映射（含主题子键）。
 
-        If ``topic_id`` is provided, only that specific conversation/topic mapping is removed.
-        If ``topic_id`` is omitted, all mappings whose key starts with
-        ``"<channel_name>:<chat_id>"`` (including topic-specific ones) are removed.
-
-        Returns True if at least one mapping was removed.
+        若至少删除一条映射则返回 True。
         """
         with self._lock:
-            # Remove a specific conversation/topic mapping.
+            # 删除指定会话/主题映射
             if topic_id is not None:
                 key = self._key(channel_name, chat_id, topic_id)
                 if key in self._data:
@@ -125,7 +122,7 @@ class ChannelStore:
                     return True
                 return False
 
-            # Remove all mappings for this channel/chat_id (base and any topic-specific keys).
+            # 删除该 channel/chat_id 下全部映射（基础键与主题子键）
             prefix = self._key(channel_name, chat_id)
             keys_to_delete = [k for k in self._data if k == prefix or k.startswith(prefix + ":")]
             if not keys_to_delete:
@@ -137,7 +134,7 @@ class ChannelStore:
             return True
 
     def list_entries(self, channel_name: str | None = None) -> list[dict[str, Any]]:
-        """List all stored mappings, optionally filtered by channel."""
+        """列出全部存储映射，可按 channel 过滤。"""
         results = []
         for key, entry in self._data.items():
             parts = key.split(":", 2)

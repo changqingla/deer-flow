@@ -16,7 +16,7 @@ COPY --from=crpi-wh1i56a4x558rrhm.cn-hangzhou.personal.cr.aliyuncs.com/changqing
 # Set working directory
 WORKDIR /app
 
-# Copy frontend source code
+# Copy backend source code
 COPY backend ./backend
 
 # Install dependencies with cache mount

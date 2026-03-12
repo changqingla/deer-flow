@@ -30,11 +30,11 @@ POST /api/threads/{thread_id}/uploads
     {
       "filename": "document.pdf",
       "size": 1234567,
-      "path": ".deer-flow/threads/{thread_id}/user-data/uploads/document.pdf",
+      "path": ".agent-flow/threads/{thread_id}/user-data/uploads/document.pdf",
       "virtual_path": "/mnt/user-data/uploads/document.pdf",
       "artifact_url": "/api/threads/{thread_id}/artifacts/mnt/user-data/uploads/document.pdf",
       "markdown_file": "document.md",
-      "markdown_path": ".deer-flow/threads/{thread_id}/user-data/uploads/document.md",
+      "markdown_path": ".agent-flow/threads/{thread_id}/user-data/uploads/document.md",
       "markdown_virtual_path": "/mnt/user-data/uploads/document.md",
       "markdown_artifact_url": "/api/threads/{thread_id}/artifacts/mnt/user-data/uploads/document.md"
     }
@@ -65,7 +65,7 @@ GET /api/threads/{thread_id}/uploads/list
     {
       "filename": "document.pdf",
       "size": 1234567,
-      "path": ".deer-flow/threads/{thread_id}/user-data/uploads/document.pdf",
+      "path": ".agent-flow/threads/{thread_id}/user-data/uploads/document.pdf",
       "virtual_path": "/mnt/user-data/uploads/document.pdf",
       "artifact_url": "/api/threads/{thread_id}/artifacts/mnt/user-data/uploads/document.pdf",
       "extension": ".pdf",
@@ -206,7 +206,7 @@ print(response.json())
 ## 文件存储结构
 
 ```
-backend/.deer-flow/threads/
+backend/.agent-flow/threads/
 └── {thread_id}/
     └── user-data/
         └── uploads/

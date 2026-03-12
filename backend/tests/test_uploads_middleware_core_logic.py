@@ -1,4 +1,4 @@
-"""Core behaviour tests for UploadsMiddleware.
+"""
 
 Covers:
 - _files_from_kwargs: parsing, validation, existence check, virtual-path construction

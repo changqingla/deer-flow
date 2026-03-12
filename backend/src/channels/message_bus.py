@@ -1,4 +1,4 @@
-"""MessageBus — async pub/sub hub that decouples channels from the agent dispatcher."""
+"""消息总线（MessageBus）：用于解耦通道与分发器的异步发布/订阅总线。"""
 
 from __future__ import annotations
 
@@ -15,12 +15,12 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Message types
+# 消息类型
 # ---------------------------------------------------------------------------
 
 
 class InboundMessageType(StrEnum):
-    """Types of messages arriving from IM channels."""
+    """来自 IM 通道的入站消息类型。"""
 
     CHAT = "chat"
     COMMAND = "command"
@@ -28,22 +28,21 @@ class InboundMessageType(StrEnum):
 
 @dataclass
 class InboundMessage:
-    """A message arriving from an IM channel toward the agent dispatcher.
+    """
+    字段：
+        channel_name: 源通道名称（例如 "feishu"、"slack"）。
+        chat_id: 平台侧会话/对话标识。
+        user_id: 平台侧用户标识。
+        text: 消息文本。
+        msg_type: 普通聊天消息或命令消息。
+        thread_ts: 可选的平台线程标识（用于线程回复）。
+        topic_id: 会话主题标识，用于映射到 AgentFlow 线程。
+            在同一 ``chat_id`` 下，共享 ``topic_id`` 的消息会复用同一 AgentFlow 线程。
+            当为 ``None`` 时，每条消息都创建新线程（一次性问答）。
+        files: 可选文件附件列表（平台相关字典结构）。
+        metadata: 来自通道的任意额外数据。
+        created_at: 消息创建时间（Unix 时间戳）。
 
-    Attributes:
-        channel_name: Name of the source channel (e.g. "feishu", "slack").
-        chat_id: Platform-specific chat/conversation identifier.
-        user_id: Platform-specific user identifier.
-        text: The message text.
-        msg_type: Whether this is a regular chat message or a command.
-        thread_ts: Optional platform thread identifier (for threaded replies).
-        topic_id: Conversation topic identifier used to map to a AgentFlow thread.
-            Messages sharing the same ``topic_id`` within a ``chat_id`` will
-            reuse the same AgentFlow thread.  When ``None``, each message
-            creates a new thread (one-shot Q&A).
-        files: Optional list of file attachments (platform-specific dicts).
-        metadata: Arbitrary extra data from the channel.
-        created_at: Unix timestamp when the message was created.
     """
 
     channel_name: str
@@ -60,15 +59,15 @@ class InboundMessage:
 
 @dataclass
 class ResolvedAttachment:
-    """A file attachment resolved to a host filesystem path, ready for upload.
+    """
+    字段：
+        virtual_path: 原始虚拟路径（例如 /mnt/user-data/outputs/report.pdf）。
+        actual_path: 解析后的宿主机文件系统路径。
+        filename: 文件名（basename）。
+        mime_type: MIME 类型（例如 "application/pdf"）。
+        size: 文件大小（字节）。
+        is_image: 对 image/* MIME 类型为 True（某些平台会差异化处理图片）。
 
-    Attributes:
-        virtual_path: Original virtual path (e.g. /mnt/user-data/outputs/report.pdf).
-        actual_path: Resolved host filesystem path.
-        filename: Basename of the file.
-        mime_type: MIME type (e.g. "application/pdf").
-        size: File size in bytes.
-        is_image: True for image/* MIME types (platforms may handle images differently).
     """
 
     virtual_path: str
@@ -81,18 +80,18 @@ class ResolvedAttachment:
 
 @dataclass
 class OutboundMessage:
-    """A message from the agent dispatcher back to a channel.
+    """
+    字段：
+        channel_name: 目标通道名（用于路由）。
+        chat_id: 目标会话标识。
+        thread_id: 生成该回复的 AgentFlow 线程 ID。
+        text: 回复文本。
+        artifacts: Agent 产物路径列表。
+        is_final: 是否为当前回复流的最终消息。
+        thread_ts: 可选的平台线程标识（用于线程回复）。
+        metadata: 任意扩展数据。
+        created_at: Unix 时间戳。
 
-    Attributes:
-        channel_name: Target channel name (used for routing).
-        chat_id: Target chat/conversation identifier.
-        thread_id: AgentFlow thread ID that produced this response.
-        text: The response text.
-        artifacts: List of artifact paths produced by the agent.
-        is_final: Whether this is the final message in the response stream.
-        thread_ts: Optional platform thread identifier for threaded replies.
-        metadata: Arbitrary extra data.
-        created_at: Unix timestamp.
     """
 
     channel_name: str
@@ -108,28 +107,27 @@ class OutboundMessage:
 
 
 # ---------------------------------------------------------------------------
-# MessageBus
+# 消息总线
 # ---------------------------------------------------------------------------
 
 OutboundCallback = Callable[[OutboundMessage], Coroutine[Any, Any, None]]
 
 
 class MessageBus:
-    """Async pub/sub hub connecting channels and the agent dispatcher.
+    """
+    通道发布入站消息，分发器消费入站消息；
+    分发器发布出站消息，通道通过注册回调接收。
 
-    Channels publish inbound messages; the dispatcher consumes them.
-    The dispatcher publishes outbound messages; channels receive them
-    via registered callbacks.
     """
 
     def __init__(self) -> None:
         self._inbound_queue: asyncio.Queue[InboundMessage] = asyncio.Queue()
         self._outbound_listeners: list[OutboundCallback] = []
 
-    # -- inbound -----------------------------------------------------------
+    # -- 入站 ---------------------------------------------------------------
 
     async def publish_inbound(self, msg: InboundMessage) -> None:
-        """Enqueue an inbound message from a channel."""
+        """将通道入站消息放入队列。"""
         await self._inbound_queue.put(msg)
         logger.info(
             "[Bus] inbound enqueued: channel=%s, chat_id=%s, type=%s, queue_size=%d",
@@ -140,25 +138,25 @@ class MessageBus:
         )
 
     async def get_inbound(self) -> InboundMessage:
-        """Block until the next inbound message is available."""
+        """阻塞直到拿到下一条入站消息。"""
         return await self._inbound_queue.get()
 
     @property
     def inbound_queue(self) -> asyncio.Queue[InboundMessage]:
         return self._inbound_queue
 
-    # -- outbound ----------------------------------------------------------
+    # -- 出站 ---------------------------------------------------------------
 
     def subscribe_outbound(self, callback: OutboundCallback) -> None:
-        """Register an async callback for outbound messages."""
+        """注册一个用于出站消息的异步回调。"""
         self._outbound_listeners.append(callback)
 
     def unsubscribe_outbound(self, callback: OutboundCallback) -> None:
-        """Remove a previously registered outbound callback."""
+        """移除已注册的出站回调。"""
         self._outbound_listeners = [cb for cb in self._outbound_listeners if cb is not callback]
 
     async def publish_outbound(self, msg: OutboundMessage) -> None:
-        """Dispatch an outbound message to all registered listeners."""
+        """将出站消息分发给所有已注册监听器。"""
         logger.info(
             "[Bus] outbound dispatching: channel=%s, chat_id=%s, listeners=%d, text_len=%d",
             msg.channel_name,

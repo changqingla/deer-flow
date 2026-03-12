@@ -7,7 +7,7 @@ router = APIRouter(prefix="/api", tags=["models"])
 
 
 class ModelResponse(BaseModel):
-    """Response model for model information."""
+    """模型信息响应模型。"""
 
     name: str = Field(..., description="Unique identifier for the model")
     display_name: str | None = Field(None, description="Human-readable name")
@@ -17,7 +17,7 @@ class ModelResponse(BaseModel):
 
 
 class ModelsListResponse(BaseModel):
-    """Response model for listing all models."""
+    """模型列表响应模型。"""
 
     models: list[ModelResponse]
 
@@ -29,33 +29,13 @@ class ModelsListResponse(BaseModel):
     description="Retrieve a list of all available AI models configured in the system.",
 )
 async def list_models() -> ModelsListResponse:
-    """List all available models from configuration.
+    """获取系统中全部可用模型列表。
 
-    Returns model information suitable for frontend display,
-    excluding sensitive fields like API keys and internal configuration.
+    返回面向前端展示的模型信息，不包含 API Key 等敏感字段
+    以及内部实现配置。
 
-    Returns:
-        A list of all configured models with their metadata.
-
-    Example Response:
-        ```json
-        {
-            "models": [
-                {
-                    "name": "gpt-4",
-                    "display_name": "GPT-4",
-                    "description": "OpenAI GPT-4 model",
-                    "supports_thinking": false
-                },
-                {
-                    "name": "claude-3-opus",
-                    "display_name": "Claude 3 Opus",
-                    "description": "Anthropic Claude 3 Opus model",
-                    "supports_thinking": true
-                }
-            ]
-        }
-        ```
+    返回：
+        所有已配置模型及其元数据列表。
     """
     config = get_app_config()
     models = [
@@ -78,26 +58,16 @@ async def list_models() -> ModelsListResponse:
     description="Retrieve detailed information about a specific AI model by its name.",
 )
 async def get_model(model_name: str) -> ModelResponse:
-    """Get a specific model by name.
+    """获取指定模型详情。
 
-    Args:
-        model_name: The unique name of the model to retrieve.
+    参数：
+        model_name: 要查询的模型唯一名称。
 
-    Returns:
-        Model information if found.
+    返回：
+        找到时返回模型信息。
 
-    Raises:
-        HTTPException: 404 if model not found.
-
-    Example Response:
-        ```json
-        {
-            "name": "gpt-4",
-            "display_name": "GPT-4",
-            "description": "OpenAI GPT-4 model",
-            "supports_thinking": false
-        }
-        ```
+    异常：
+        HTTPException: 模型不存在时返回 404。
     """
     config = get_app_config()
     model = config.get_model_config(model_name)

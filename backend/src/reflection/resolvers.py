@@ -9,36 +9,37 @@ MODULE_TO_PACKAGE_HINTS = {
 
 
 def _build_missing_dependency_hint(module_path: str, err: ImportError) -> str:
-    """Build an actionable hint when module import fails."""
+    """在模块导入失败时构造可执行的依赖安装提示。"""
     module_root = module_path.split(".", 1)[0]
     missing_module = getattr(err, "name", None) or module_root
 
-    # Prefer provider package hints for known integrations, even when the import
-    # error is triggered by a transitive dependency (e.g. `google`).
+    # 对已知集成优先使用 provider 包名提示，即使导入错误是由传递依赖
+    # （如 `google`）触发。
     package_name = MODULE_TO_PACKAGE_HINTS.get(module_root)
     if package_name is None:
         package_name = MODULE_TO_PACKAGE_HINTS.get(missing_module, missing_module.replace("_", "-"))
 
-    return f"Missing dependency '{missing_module}'. Install it with `uv add {package_name}` (or `pip install {package_name}`), then restart AgentFlow."
+    return f"Missing dependency '{missing_module}'. Install it with `uv add {package_name}` (or `pip install {package_name}`), then restart Agent-flow."
 
 
 def resolve_variable[T](
     variable_path: str,
     expected_type: type[T] | tuple[type, ...] | None = None,
 ) -> T:
-    """Resolve a variable from a path.
+    """按路径解析变量并可选做类型校验。
 
-    Args:
-        variable_path: The path to the variable (e.g. "parent_package_name.sub_package_name.module_name:variable_name").
-        expected_type: Optional type or tuple of types to validate the resolved variable against.
-            If provided, uses isinstance() to check if the variable is an instance of the expected type(s).
+    参数：
+        variable_path: 变量路径（如
+            `"parent_package_name.sub_package_name.module_name:variable_name"`）。
+        expected_type: 期望类型（或类型元组）；若提供则使用 `isinstance()`
+            校验解析结果。
 
-    Returns:
-        The resolved variable.
+    返回：
+        解析到的变量对象。
 
-    Raises:
-        ImportError: If the module path is invalid or the attribute doesn't exist.
-        ValueError: If the resolved variable doesn't pass the validation checks.
+    异常：
+        ImportError: 模块路径无效或属性不存在时抛出。
+        ValueError: 解析结果未通过校验时抛出。
     """
     try:
         module_path, variable_name = variable_path.rsplit(":", 1)
@@ -53,7 +54,7 @@ def resolve_variable[T](
         if isinstance(err, ModuleNotFoundError) or err_name == module_root:
             hint = _build_missing_dependency_hint(module_path, err)
             raise ImportError(f"Could not import module {module_path}. {hint}") from err
-        # Preserve the original ImportError message for non-missing-module failures.
+        # 对非“缺失模块”类错误，保留原始 ImportError 信息。
         raise ImportError(f"Error importing module {module_path}: {err}") from err
 
     try:
@@ -61,7 +62,7 @@ def resolve_variable[T](
     except AttributeError as err:
         raise ImportError(f"Module {module_path} does not define a {variable_name} attribute/class") from err
 
-    # Type validation
+    # 类型校验
     if expected_type is not None:
         if not isinstance(variable, expected_type):
             type_name = expected_type.__name__ if isinstance(expected_type, type) else " or ".join(t.__name__ for t in expected_type)
@@ -71,18 +72,18 @@ def resolve_variable[T](
 
 
 def resolve_class[T](class_path: str, base_class: type[T] | None = None) -> type[T]:
-    """Resolve a class from a module path and class name.
+    """按路径解析类，并可选校验其父类关系。
 
-    Args:
-        class_path: The path to the class (e.g. "langchain_openai:ChatOpenAI").
-        base_class: The base class to check if the resolved class is a subclass of.
+    参数：
+        class_path: 类路径（如 `"langchain_openai:ChatOpenAI"`）。
+        base_class: 期望父类；若提供则校验解析出的类是否为其子类。
 
-    Returns:
-        The resolved class.
+    返回：
+        解析得到的类对象。
 
-    Raises:
-        ImportError: If the module path is invalid or the attribute doesn't exist.
-        ValueError: If the resolved object is not a class or not a subclass of base_class.
+    异常：
+        ImportError: 模块路径无效或属性不存在时抛出。
+        ValueError: 解析结果不是类，或不是 `base_class` 子类时抛出。
     """
     model_class = resolve_variable(class_path, expected_type=type)
 
